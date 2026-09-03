@@ -1,0 +1,16 @@
+{
+  "name": "stadtpuls-potsdam-mikroklima",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Live-Dashboard für die Mikroklima-Messstationen der Stadt Potsdam (SenseCAP-Wetterstationen, Daten von der Urbanen Datenplattform Potsdam).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

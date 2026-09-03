@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stadtpuls Potsdam - Mikroklima</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="top-header">
+        <div class="header-inner container">
+            <div class="logo-area">
+                <div class="brand-logo"></div>
+                <div class="brand-text">
+                    <span class="stadtpuls">STADTPULS</span>
+                    <span class="potsdam">POTSDAM</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-intro container">
+        <div class="breadcrumb">Karten &gt; Mikroklima</div>
+        <h1>Potsdam räumlich entdecken</h1>
+        <p>Live-Messwerte echter Wetterstationen im Stadtgebiet. Die Karte zeigt die aktuellen mikroklimatischen Bedingungen an jedem angeschlossenen Standort, Kaltluftströmungen werden dynamisch durch Pfeile dargestellt.</p>
+    </div>
+
+    <div class="container">
+        <div id="verbindungshinweis" class="verbindungshinweis hidden">
+            <span class="material-icons-round">cloud_off</span>
+            <div>
+                <strong>Keine Verbindung zum Server</strong>
+                <p>Läuft der Server noch (<code>npm start</code>) und ist die Seite über <code>http://localhost:3000</code> geöffnet – nicht als lokale Datei? Sobald die Verbindung wieder steht, füllt sich die Seite automatisch.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="map-layout container">
+        <aside class="map-sidebar">
+            <div class="sidebar-header">
+                <h3>KLIMADATEN STEUERUNG</h3>
+            </div>
+
+            <div class="sidebar-content">
+                <div class="control-group">
+                    <label>Karten-Metrik</label>
+                    <select id="metric-select" class="custom-select">
+                        <option value="temp">Temperatur (°C)</option>
+                        <option value="wind">Windgeschwindigkeit (km/h)</option>
+                        <option value="wind_dir">Windrichtung</option>
+                        <option value="humidity">Luftfeuchtigkeit (%)</option>
+                        <option value="sun_intensity">Lichtintensität (lx)</option>
+                        <option value="uv">UV-Index</option>
+                        <option value="rain">Niederschlag (mm)</option>
+                        <option value="pressure">Luftdruck (hPa)</option>
+                    </select>
+                    <p class="feld-hinweis" id="metrik-erklaerung">Zeigt die Temperatur an jedem Standort als Farbverlauf auf der Karte.</p>
+                </div>
+
+                <div class="control-group">
+                    <label><span class="live-punkt"></span> Daten-Status</label>
+                    <div class="sim-controls">
+                        <div class="time-box">
+                            <span class="material-icons-round">schedule</span>
+                            <span id="letzte-aktualisierung">--:--</span>
+                        </div>
+                        <button id="btn-aktualisieren" class="btn-play">
+                            <span class="material-icons-round">refresh</span> Aktualisieren
+                        </button>
+                    </div>
+                    <p class="live-hinweis">Aktualisiert sich automatisch alle 5 Minuten.</p>
+                </div>
+
+                <hr class="sidebar-divider">
+
+                <div class="live-widgets">
+                    <div class="widget-mini">
+                        <div class="w-icon"><span class="material-icons-round" style="color: #ef4444;">thermostat</span></div>
+                        <div class="w-data">
+                            <span class="w-label">Ø-Temperatur</span>
+                            <span class="w-val" id="widget-avg-temp">-- °C</span>
+                        </div>
+                    </div>
+                    <div class="widget-mini">
+                        <div class="w-icon"><span class="material-icons-round" style="color: #3b82f6;">air</span></div>
+                        <div class="w-data">
+                            <span class="w-label">Ø-Wind</span>
+                            <span class="w-val" id="widget-avg-wind">-- km/h</span>
+                        </div>
+                    </div>
+                    <div class="widget-mini alert-bg">
+                        <div class="w-icon"><span class="material-icons-round" style="color: #fff;">warning_amber</span></div>
+                        <div class="w-data">
+                            <span class="w-label" style="color: #ffe4e6;">Hitzewarnungen</span>
+                            <span class="w-val" style="color: #fff;" id="widget-warnings">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <div class="map-area">
+            <div id="map"></div>
+
+            <div class="marker-legende">
+                <span class="legende-chip"><i class="punkt-symbol live"></i> Live-Sensor</span>
+                <span class="legende-chip"><i class="punkt-symbol platzhalter"></i> Noch nicht angebunden</span>
+            </div>
+
+            <div class="map-legend">
+                <h4 id="legend-title">Temperatur-Gradient</h4>
+                <div class="legend-scale">
+                    <div class="color-bar" id="legend-bar"></div>
+                    <div class="scale-labels" id="legend-labels">
+                        <span>10°C</span>
+                        <span>25°C</span>
+                        <span>40°C+</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Standortanalyse -->
+    <div class="analytics-section container hidden" id="dashboard-section">
+        <h2 class="section-title">Standortanalyse: <span id="dash-title-name">...</span></h2>
+
+        <div class="info-panel">
+            <div class="info-content">
+                <h3 style="color: var(--brand-dark); margin-bottom: 8px;">Live-Messwerte dieses Standorts</h3>
+                <p id="dash-desc">Wählen Sie einen Standort auf der Karte aus.</p>
+
+                <div id="dash-warning-box" class="warning-box hidden">
+                    <span class="material-icons-round">error_outline</span>
+                    <div>
+                        <strong>Hitzewarnung</strong>
+                        <p id="dash-warning-text"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="zeitraum-auswahl">
+            <div class="zeitraum-auswahl-zeile">
+                <span class="zeitraum-label">Betrachtungszeitraum:</span>
+                <div class="zeitraum-buttons">
+                    <button class="zeitraum-btn aktiv" data-zeitraum="24h">24 Stunden</button>
+                    <button class="zeitraum-btn" data-zeitraum="7d">7 Tage</button>
+                    <button class="zeitraum-btn" data-zeitraum="30d">30 Tage</button>
+                    <button class="zeitraum-btn" data-zeitraum="alle">Gesamter Zeitraum</button>
+                </div>
+            </div>
+            <p class="feld-hinweis">Tipp: In den Diagrammen mit dem Mausrad zoomen und bei gedrückter Maustaste verschieben – Doppelklick auf das Zurücksetzen-Symbol springt wieder auf die volle Ansicht.</p>
+        </div>
+
+        <div class="dashboard-tiles" id="dashboard-tiles">
+            <!-- Wird durch script.js befüllt: pro Messwert des gewählten Sensors eine Diagramm-Karte,
+                 plus die feste Glossar-Karte am Ende. -->
+        </div>
+    </div>
+
+    <div id="standort-popup" class="standort-popup"></div>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="config.js"></script>
+    <script src="messfeld-wissen.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -63,6 +63,9 @@ function initialisiereKarte() {
 
     karte = L.map('map', {
         zoomControl: true,
+        // Eigene Steuerung statt Leaflets eingebautem Scroll-Zoom (siehe unten) -
+        // sonst bleibt die Seite beim Scrollen über der Karte hängen.
+        scrollWheelZoom: false,
         maxBounds: kartenGrenzen,
         maxBoundsViscosity: 0.8,
         minZoom: 12,
@@ -73,6 +76,8 @@ function initialisiereKarte() {
         attribution: '&copy; OpenStreetMap-Mitwirkende',
         opacity: 0.8
     }).addTo(karte);
+
+    initialisiereScrollZoom();
 
     try {
         hitzeKarte = L.heatLayer([], { radius: 70, blur: 50, maxZoom: 13, maxOpacity: 0.4 }).addTo(karte);
@@ -115,6 +120,29 @@ function markiereAusgewaehltenMarker(standortId) {
         const element = document.getElementById(`marker-${id}`);
         if (element) element.classList.toggle('ist-ausgewaehlt', id === standortId);
     });
+}
+
+// Scrollt man mit der Maus über die Karte, soll normalerweise einfach die Seite
+// weiterscrollen (wie bei Google Maps eingebettet) - nur mit gedrückter
+// Strg-/Cmd-Taste wird tatsächlich gezoomt. Ohne das bleibt man beim Scrollen
+// über der Karte hängen, statt weiter durch die Seite zu kommen.
+function initialisiereScrollZoom() {
+    const mapElement = document.getElementById('map');
+    let hinweisTimeout;
+
+    mapElement.addEventListener('wheel', (ereignis) => {
+        if (!ereignis.ctrlKey && !ereignis.metaKey) {
+            const hinweis = document.getElementById('scroll-zoom-hinweis');
+            hinweis.classList.add('sichtbar');
+            clearTimeout(hinweisTimeout);
+            hinweisTimeout = setTimeout(() => hinweis.classList.remove('sichtbar'), 1000);
+            return; // kein preventDefault -> die Seite scrollt ganz normal weiter
+        }
+
+        ereignis.preventDefault();
+        const punkt = karte.mouseEventToContainerPoint(ereignis);
+        karte.setZoomAround(punkt, karte.getZoom() + (ereignis.deltaY < 0 ? 0.5 : -0.5));
+    }, { passive: false });
 }
 
 // --- Bedienelemente --------------------------------------------------------

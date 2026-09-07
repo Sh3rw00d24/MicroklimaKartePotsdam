@@ -28,28 +28,32 @@ const STANDORTE = [
         name: 'am Steubenplatz / Alter Markt',
         lat: 52.39533,
         lng: 13.05943,
-        resourceId: 'fd84a408-8f53-4b52-b989-b9b8877dac32'
+        resourceId: 'fd84a408-8f53-4b52-b989-b9b8877dac32',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/e6c5666a-0475-4cc9-b082-cf671596760f/resource/fd84a408-8f53-4b52-b989-b9b8877dac32'
     },
     {
         id: 'stadtbad-babelsberg',
         name: 'Stadtbad Babelsberg',
         lat: 52.40573,
         lng: 13.08504,
-        resourceId: '75b42788-dda2-4f04-861a-d185727f0eaa'
+        resourceId: '75b42788-dda2-4f04-861a-d185727f0eaa',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/540f2d6e-8466-4a54-b463-a797039137d7/resource/75b42788-dda2-4f04-861a-d185727f0eaa'
     },
     {
         id: 'krampnitz',
         name: 'Stadtteil Krampnitz',
         lat: 52.46062,
         lng: 13.04624,
-        resourceId: 'c17a45ee-50e0-4f81-a573-830a43f0f2cf'
+        resourceId: 'c17a45ee-50e0-4f81-a573-830a43f0f2cf',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/64a82427-5302-472e-998a-f5ae80dac4a8/resource/c17a45ee-50e0-4f81-a573-830a43f0f2cf'
     },
     {
         id: 'karl-liebknecht-station',
         name: 'Karl Liebknecht Station',
         lat: 52.39915,
         lng: 13.09471,
-        resourceId: '66464ee9-81db-4fa7-95ba-4a1fe5a52acd'
+        resourceId: '66464ee9-81db-4fa7-95ba-4a1fe5a52acd',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/8a99ff13-c388-4610-ba1a-063bc3c8c9a1/resource/66464ee9-81db-4fa7-95ba-4a1fe5a52acd'
     },
 
     // --- Ab hier: Standorte, für die aktuell noch keine Sensor-Ressource auf der

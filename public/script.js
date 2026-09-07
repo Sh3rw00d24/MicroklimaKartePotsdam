@@ -384,6 +384,13 @@ function aktualisiereLiveWidgets() {
         document.getElementById('widget-avg-wind'),
         windgeschwindigkeitenKmh.length ? `${mittelwert(windgeschwindigkeitenKmh).toFixed(1)} km/h` : '-- km/h'
     );
+
+    const standorteMitSensor = STANDORTE.filter(s => s.resourceId);
+    const standorteLive = standorteMitSensor.filter(s => !aktuelleWerteNachStandortId[s.id]?.fehler);
+    animiereZahlwechsel(
+        document.getElementById('widget-live-count'),
+        `${standorteLive.length} / ${STANDORTE.length}`
+    );
 }
 
 function mittelwert(zahlen) {
@@ -591,6 +598,10 @@ function zeigeStandortImDashboard(standort) {
 
     document.getElementById('dash-title-name').innerText = standort.name;
     document.getElementById('dash-warning-box').classList.add('hidden');
+
+    const quelleLink = document.getElementById('dash-quelle-link');
+    quelleLink.classList.toggle('hidden', !standort.datenquelleUrl);
+    if (standort.datenquelleUrl) quelleLink.href = standort.datenquelleUrl;
 
     if (!standort.resourceId) {
         document.getElementById('dash-desc').innerText =

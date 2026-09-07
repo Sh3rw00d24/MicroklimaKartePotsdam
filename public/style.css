@@ -1,5 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Funnel+Display:wght@600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Funnel+Display:wght@600;700&display=swap");
 
 :root {
     --brand-dark: #211c3d;
@@ -17,49 +17,61 @@ body { font-family: var(--font-text); color: var(--text-main); background: #fff;
 .container { max-width: 1400px; margin: 0 auto; padding: 0 40px; }
 .hidden { display: none !important; }
 
-/* Header */
+/* Header - bewusst ohne große Navigation, diese Seite steht neben der UDP, nicht in ihr */
 .top-header { background: var(--brand-dark); color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .header-inner { display: flex; align-items: center; justify-content: space-between; height: 70px; }
 .logo-area { display: flex; align-items: center; gap: 12px; }
-.brand-logo { width: 35px; height: 35px; border-radius: 50%; background: conic-gradient(from 90deg, #3b82f6, #10b981, #facc15, #ff6f61); }
+.brand-logo { width: 35px; height: 35px; border-radius: 50%; background: conic-gradient(from 90deg, #3b82f6, #10b981, #facc15, #ff6f61); flex-shrink: 0; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
 .stadtpuls { color: var(--accent-color); font-size: 13px; font-weight: 700; letter-spacing: 1px; }
 .potsdam { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+.header-quelle { color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; transition: color 0.15s; }
+.header-quelle:hover { color: #fff; }
+.header-quelle .material-icons-round { font-size: 15px; }
 
-/* Intro */
-.page-intro { margin: 40px auto 30px; }
-.breadcrumb { font-size: 13px; color: var(--text-main); margin-bottom: 20px; font-weight: 600; }
-.page-intro h1 { font-family: var(--font-display); font-size: 42px; color: var(--brand-dark); margin-bottom: 10px; }
-.page-intro p { font-size: 16px; color: #475569; max-width: 800px; }
+/* Hero */
+.hero { background: var(--brand-dark); color: #fff; padding: 72px 0 64px; }
+.hero-eyebrow { color: var(--accent-color); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; font-size: 13px; margin-bottom: 20px; }
+.hero h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 4.6vw, 52px); line-height: 1.12; max-width: 880px; margin-bottom: 20px; }
+.hero-text { font-size: 17px; color: rgba(255,255,255,0.72); max-width: 620px; line-height: 1.6; }
 
-/* Verbindungshinweis, falls der Server mal nicht erreichbar ist */
-.verbindungshinweis { display: flex; gap: 14px; align-items: flex-start; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; padding: 16px 20px; margin-bottom: 24px; }
+/* Puls-Kacheln: die vier wichtigsten Live-Kennzahlen auf einen Blick */
+.puls-sektion { padding: 56px 0; }
+.puls-titel { font-family: var(--font-display); font-size: 26px; color: var(--brand-dark); margin-bottom: 26px; }
+.puls-kacheln { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.puls-kachel { padding: 26px 24px; display: flex; flex-direction: column; gap: 10px; transition: transform 0.2s ease; }
+.puls-kachel:hover { transform: translateY(-4px); }
+.puls-kachel.dunkel { background: var(--brand-dark); color: #fff; }
+.puls-kachel.coral { background: var(--accent-color); color: #fff; }
+.puls-kachel .material-icons-round { font-size: 24px; opacity: 0.85; }
+.puls-zahl { font-family: var(--font-display); font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.puls-label { font-size: 13px; opacity: 0.85; font-weight: 600; }
+
+/* Kartensektion - bewusst ohne .container, damit die Karte die volle Seitenbreite nutzt */
+.karten-sektion { padding-bottom: 70px; }
+.verbindungshinweis { display: flex; gap: 14px; align-items: flex-start; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; padding: 16px 20px; margin-bottom: 20px; }
 .verbindungshinweis .material-icons-round { font-size: 22px; margin-top: 1px; }
 .verbindungshinweis strong { display: block; margin-bottom: 4px; }
 .verbindungshinweis p { font-size: 14px; line-height: 1.5; }
 .verbindungshinweis code { background: rgba(154, 52, 18, 0.1); padding: 1px 5px; border-radius: 3px; font-family: monospace; }
 
-/* Map Layout */
-.map-layout { display: flex; gap: 30px; height: 750px; margin-bottom: 60px; }
-/* min-height: 0 ist hier wichtig, sonst darf sich ein Flex-Kind nie kleiner
-   ziehen als sein Inhalt "möchte" - bei einer langen Seitenleiste würde sonst
-   die ganze Zeile (und damit die Karte daneben) aufgeblasen. */
-.map-sidebar { width: 350px; min-height: 0; background: #fff; border: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
-.sidebar-header { padding: 20px 25px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
-.sidebar-header h3 { font-size: 14px; color: var(--accent-color); letter-spacing: 1px; font-weight: 700;}
-.sidebar-content { flex: 1; min-height: 0; padding: 25px; overflow-y: auto; }
-.control-group { margin-bottom: 25px; }
-.control-group label { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; text-transform: uppercase; }
+.karten-buehne { position: relative; width: 100%; height: 82vh; min-height: 560px; max-height: 900px; }
+#map { height: 100%; width: 100%; z-index: 1; }
+
+.karten-steuerung { position: absolute; top: 24px; left: 24px; z-index: 1000; width: 300px; background: rgba(255,255,255,0.97); border: 1px solid var(--border-color); box-shadow: 0 12px 30px rgba(15,23,42,0.15); padding: 20px; }
+.steuerung-kopf { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-main); margin-bottom: 16px; }
+.steuerung-titel { flex: 1; }
+.steuerung-refresh { flex: none; width: 30px; height: 30px; border: 1px solid var(--border-color); background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+.steuerung-refresh:hover { background: var(--bg-light); }
+.steuerung-refresh:disabled { opacity: 0.6; cursor: wait; }
+.steuerung-refresh:disabled .material-icons-round { animation: drehen 0.8s linear infinite; }
+.steuerung-refresh .material-icons-round { font-size: 18px; color: var(--brand-dark); }
+.karten-steuerung label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+.stand-zeile { font-size: 12px; color: #94a3b8; margin-top: 12px; font-variant-numeric: tabular-nums; }
+
 .custom-select { width: 100%; padding: 12px 15px; border: 1px solid var(--border-color); font-family: var(--font-text); font-weight: 600; font-size: 14px; color: var(--brand-dark); background: var(--bg-light); cursor: pointer; outline: none; transition: border-color 0.15s; }
 .custom-select:focus { border-color: var(--brand-dark); }
 .feld-hinweis { font-size: 12.5px; color: #64748b; margin-top: 8px; line-height: 1.5; }
-.sim-controls { display: flex; gap: 10px; }
-.time-box { flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 15px; border: 1px solid var(--border-color); font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--brand-dark); background: var(--bg-light); font-variant-numeric: tabular-nums; }
-.btn-play { background: var(--brand-dark); color: #fff; border: none; padding: 0 20px; font-family: var(--font-text); font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
-.btn-play:hover { background: var(--accent-color); }
-.btn-play:disabled { opacity: 0.6; cursor: wait; }
-.btn-play:disabled .material-icons-round { animation: drehen 0.8s linear infinite; }
-.live-hinweis { font-size: 12px; color: #94a3b8; margin-top: 8px; }
 
 .live-punkt { width: 8px; height: 8px; border-radius: 50%; background: #10b981; flex-shrink: 0; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); animation: livePuls 2s infinite; }
 .live-punkt.getrennt { background: #cbd5e1; animation: none; box-shadow: none; }
@@ -70,26 +82,13 @@ body { font-family: var(--font-text); color: var(--text-main); background: #fff;
 }
 @keyframes drehen { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-.sidebar-divider { border: 0; border-top: 1px solid var(--border-color); margin: 30px 0; }
-.live-widgets { display: flex; flex-direction: column; gap: 15px; }
-.widget-mini { display: flex; align-items: center; gap: 15px; padding: 15px; border: 1px solid var(--border-color); background: #fff; transition: border-color 0.2s; }
-.alert-bg { background: var(--accent-color); border-color: var(--accent-color); }
-.w-icon { background: var(--bg-light); padding: 10px; border-radius: 4px; display: flex; }
-.alert-bg .w-icon { background: rgba(255,255,255,0.2); }
-.w-data { display: flex; flex-direction: column; }
-.w-label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; }
-.w-val { font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--brand-dark); line-height: 1.1; font-variant-numeric: tabular-nums; }
-
-.map-area { flex: 1; min-height: 0; position: relative; background: #e5e9ec; border: 1px solid var(--border-color); box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
-#map { height: 100%; width: 100%; z-index: 1; }
-
-.marker-legende { position: absolute; top: 20px; left: 20px; z-index: 1000; display: flex; gap: 8px; flex-wrap: wrap; }
+.marker-legende { position: absolute; top: 24px; right: 24px; z-index: 1000; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 260px; }
 .legende-chip { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.95); border: 1px solid var(--border-color); padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .punkt-symbol { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .punkt-symbol.live { background: var(--brand-dark); }
 .punkt-symbol.platzhalter { background: #fff; border: 2px dashed #94a3b8; }
 
-.map-legend { position: absolute; bottom: 30px; right: 30px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 15px 20px; border: 1px solid var(--border-color); width: 250px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+.map-legend { position: absolute; bottom: 24px; right: 24px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 15px 20px; border: 1px solid var(--border-color); width: 250px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
 .map-legend h4 { font-family: var(--font-display); font-size: 15px; margin-bottom: 10px; color: var(--brand-dark); }
 .color-bar { height: 10px; border-radius: 5px; background: linear-gradient(to right, #3b82f6, #10b981, #facc15, #ff6f61, #8b0000); margin-bottom: 6px; }
 .scale-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #64748b; }
@@ -109,12 +108,9 @@ body { font-family: var(--font-text); color: var(--text-main); background: #fff;
 .wind-arrow { position: absolute; transition: transform 0.1s; filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.5)); pointer-events: none; }
 .wind-arrow svg { width: 100%; height: 100%; fill: #ffffff; opacity: 0.9; }
 
-/* Standort-Popup: bewusst kein natives Leaflet-Popup, sondern eine eigene, fest
-   auf dem Bildschirm positionierte Karte. Leaflet schneidet Popups am Rand der
-   Karte ab (overflow: hidden auf dem Kartencontainer) - bei den vielen Messwerten
-   passt ein Popup damit oft nicht vollständig hinein. Diese Variante hängt direkt
-   am body und wird per JavaScript neben den angeklickten Punkt gesetzt, kann also
-   nie von der Karte beschnitten werden. */
+/* Standort-Popup: kein natives Leaflet-Popup (das schneidet am Kartenrand ab),
+   sondern eine eigene, fest auf dem Bildschirm positionierte Karte, die per
+   JavaScript neben den angeklickten Punkt gesetzt wird. */
 .standort-popup {
     position: fixed;
     z-index: 2500;
@@ -156,8 +152,11 @@ body { font-family: var(--font-text); color: var(--text-main); background: #fff;
 .popup-btn:hover { background: var(--accent-light); }
 
 /* Analytics Dashboard */
-.section-title { font-family: var(--font-display); font-size: 32px; color: var(--brand-dark); margin-bottom: 30px; border-top: 1px solid var(--border-color); padding-top: 40px; }
+.section-title { font-family: var(--font-display); font-size: 32px; color: var(--brand-dark); margin: 20px 0 30px; border-top: 1px solid var(--border-color); padding-top: 40px; }
 .info-panel { background: var(--bg-light); border: 1px solid var(--border-color); padding: 30px; margin-bottom: 20px; font-size: 15px; color: #475569; }
+.quelle-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--accent-color); font-weight: 600; font-size: 14px; text-decoration: none; }
+.quelle-link:hover { text-decoration: underline; }
+.quelle-link .material-icons-round { font-size: 16px; }
 .warning-box { background: var(--accent-color); padding: 15px 20px; margin-top: 20px; display: flex; gap: 15px; align-items: flex-start; color: white;}
 .warning-box .material-icons-round { color: white; font-size: 24px; }
 .warning-box p { color: rgba(255,255,255,0.9); margin-top: 5px; font-size: 14px; }
@@ -171,8 +170,6 @@ body { font-family: var(--font-text); color: var(--text-main); background: #fff;
 .zeitraum-btn:hover { border-color: var(--brand-dark); color: var(--brand-dark); }
 .zeitraum-btn.aktiv { background: var(--brand-dark); border-color: var(--brand-dark); color: #fff; }
 
-/* Erscheint sanft, statt abrupt aufzupoppen, sobald zum ersten Mal ein Standort
-   ausgewählt wird. */
 #dashboard-section { opacity: 0; transform: translateY(18px); transition: opacity 0.45s ease, transform 0.45s ease; }
 #dashboard-section.eingeblendet { opacity: 1; transform: translateY(0); }
 
@@ -208,14 +205,31 @@ body { font-family: var(--font-text); color: var(--text-main); background: #fff;
 .g-item h4 { font-family: var(--font-display); font-size: 16px; color: var(--brand-dark); margin-bottom: 5px; }
 .g-item p { font-size: 13px; color: var(--text-main); }
 
+/* Footer */
+.site-footer { background: var(--brand-dark); color: rgba(255,255,255,0.85); padding: 36px 0; margin-top: 20px; }
+.footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
+.footer-marke { display: flex; align-items: center; gap: 14px; }
+.footer-marke strong { display: block; color: #fff; font-family: var(--font-display); font-size: 16px; }
+.footer-marke p { font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+.footer-link { color: #fff; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 2px; transition: border-color 0.15s; }
+.footer-link:hover { border-color: var(--accent-color); }
+.footer-link .material-icons-round { font-size: 16px; }
+
 .toast-container { position: fixed; top: 30px; right: 30px; z-index: 10000; display: flex; flex-direction: column; gap: 15px; }
 .toast { background: #fff; padding: 15px 20px; border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 4px solid var(--accent-color); display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 14px; animation: slideIn 0.4s forwards; }
 @keyframes slideIn { from { transform: translateX(120%); } to { transform: translateX(0); } }
 
 @media (max-width: 1100px) {
-    .map-layout { flex-direction: column; height: auto; }
-    .map-sidebar { width: 100%; }
-    .map-area { height: 550px; }
+    .puls-kacheln { grid-template-columns: repeat(2, 1fr); }
     .dashboard-tiles { grid-template-columns: 1fr; }
     .standort-popup { width: calc(100vw - 32px); max-width: 360px; }
+}
+
+@media (max-width: 780px) {
+    .header-quelle { display: none; }
+    .hero { padding: 48px 0; }
+    .karten-buehne { height: 68vh; min-height: 420px; }
+    .karten-steuerung { width: calc(100% - 32px); top: 16px; left: 16px; }
+    .marker-legende { display: none; }
+    .map-legend { left: 16px; right: 16px; width: auto; bottom: 16px; }
 }

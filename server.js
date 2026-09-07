@@ -100,3 +100,4 @@ app.get('/api/messwerte/:resourceId', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Stadtpuls Potsdam läuft auf http://localhost:${PORT}`);
 });
+//test

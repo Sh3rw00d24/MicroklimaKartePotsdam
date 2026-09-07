@@ -141,7 +141,10 @@ function initialisiereScrollZoom() {
 
         ereignis.preventDefault();
         const punkt = karte.mouseEventToContainerPoint(ereignis);
-        karte.setZoomAround(punkt, karte.getZoom() + (ereignis.deltaY < 0 ? 0.5 : -0.5));
+        // Ganze Zoomstufen, keine halben: Leaflet rundet Zwischenwerte auf volle
+        // Stufen, und 0,5 rundet in JavaScript immer nach oben - beim Rauszoomen
+        // (-0,5) landete man dadurch wieder auf der ursprünglichen Stufe.
+        karte.setZoomAround(punkt, karte.getZoom() + (ereignis.deltaY < 0 ? 1 : -1));
     }, { passive: false });
 }
 

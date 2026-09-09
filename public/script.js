@@ -237,7 +237,17 @@ async function aktualisiereAlleAktuellenWerte() {
 async function holeMesswerte(resourceId, limit) {
     try {
         const antwort = await fetch(`/api/messwerte/${resourceId}?limit=${limit}`);
-        return await antwort.json();
+        const daten = await antwort.json();
+
+        // Verschiedene Stationen nennen dieselbe Messgröße unterschiedlich (siehe
+        // messfeld-wissen.js) - hier auf einheitliche Namen und Einheiten bringen,
+        // damit der Rest der Seite nur noch eine Version davon kennen muss.
+        if (daten.erfolgreich) {
+            daten.messwerte = daten.messwerte.map(normalisiereDatensatz);
+            daten.felder = normalisiereFelderliste(daten.felder);
+        }
+
+        return daten;
     } catch (fehler) {
         return { erfolgreich: false, fehlermeldung: 'Keine Verbindung zum Server möglich.' };
     }
@@ -258,17 +268,41 @@ function findeNeuestenGueltigenDatensatz(messwerte) {
 
 // Übernimmt die vom Sensor gemeldete Position als tatsächliche Markerposition,
 // statt sich auf die geschätzte Koordinate aus config.js zu verlassen.
+// Ab welcher Entfernung zur hinterlegten Koordinate eine vom Sensor gemeldete
+// Position als unplausibel gilt (z. B. eine noch nicht aktualisierte
+// Werkskoordinate) und deshalb ignoriert wird, statt den Marker zu verschieben.
+const MAX_PLAUSIBLE_ABWEICHUNG_KM = 1.5;
+
 function aktualisierePositionAusGeoPunkt(standort, datensatz) {
     if (!datensatz || !datensatz.geo_point) return;
     const teile = datensatz.geo_point.split(',').map(Number);
     if (teile.length !== 2 || teile.some(Number.isNaN)) return;
 
     const [lat, lng] = teile;
+
+    const abweichungKm = entfernungInKm(standort.lat, standort.lng, lat, lng);
+    if (abweichungKm > MAX_PLAUSIBLE_ABWEICHUNG_KM) {
+        console.warn(`${standort.name}: gemeldete Position ist ${abweichungKm.toFixed(1)} km von der hinterlegten Koordinate entfernt und wird ignoriert.`);
+        return;
+    }
+
     standort.lat = lat;
     standort.lng = lng;
 
     const marker = markerNachStandortId[standort.id];
     if (marker) marker.setLatLng([lat, lng]);
+}
+
+// Einfache, für diese Stadtgröße genaue genug Abstandsberechnung (Äquirechteck-
+// Näherung) - keine Notwendigkeit für die aufwendigere Haversine-Formel auf
+// diesen kurzen Distanzen.
+function entfernungInKm(lat1, lng1, lat2, lng2) {
+    const erdradiusKm = 6371;
+    const deltaLatRad = (lat2 - lat1) * Math.PI / 180;
+    const deltaLngRad = (lng2 - lng1) * Math.PI / 180;
+    const mittlereBreiteRad = (lat1 + lat2) / 2 * Math.PI / 180;
+    const x = deltaLngRad * Math.cos(mittlereBreiteRad);
+    return Math.sqrt(x * x + deltaLatRad * deltaLatRad) * erdradiusKm;
 }
 
 function aktualisiereVerbindungsstatus(standorteMitSensor) {
@@ -320,7 +354,9 @@ function aktualisiereKartenfarben() {
                 html: `<div class="wind-arrow" data-dir="${richtung}"><svg viewBox="0 0 24 24"><path d="M12 2L16 10H13V22H11V10H8L12 2Z"/></svg></div>`,
                 className: '', iconSize: [24, 24], iconAnchor: [12, 12]
             });
-            L.marker([standort.lat, standort.lng], { icon: pfeilSymbol }).addTo(windPfeilEbene);
+            // interactive: false ist hier wichtig - sonst sitzt der Pfeil genau auf
+            // dem Standort-Punkt und fängt dessen Klicks ab.
+            L.marker([standort.lat, standort.lng], { icon: pfeilSymbol, interactive: false }).addTo(windPfeilEbene);
         });
     }
 

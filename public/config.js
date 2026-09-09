@@ -17,54 +17,49 @@
  * ein Sensor Daten mit einem eigenen "geo_point" sendet, übernimmt das Dashboard
  * automatisch dessen tatsächliche Position – lat/lng hier ist dann nur noch die
  * Startposition, bevor die erste Antwort da ist.
- *
- * hinweis (optional) erscheint nirgends auf der Seite, sondern nur hier im Code –
- * als Erinnerung, welche Koordinaten noch händisch geprüft werden sollten.
- */
-
+ * 
+ **/
 const STANDORTE = [
     {
         id: 'steubenplatz-alter-markt',
         name: 'am Steubenplatz / Alter Markt',
         lat: 52.39533,
         lng: 13.05943,
-        resourceId: 'fd84a408-8f53-4b52-b989-b9b8877dac32',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/e6c5666a-0475-4cc9-b082-cf671596760f/resource/fd84a408-8f53-4b52-b989-b9b8877dac32'
+        resourceId: '07f7d2ba-4885-4550-82af-839278ed410b',
+        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/c986ce1b-9f02-491f-a236-10a9dfbc8f3e/resource/07f7d2ba-4885-4550-82af-839278ed410b'
     },
     {
         id: 'stadtbad-babelsberg',
         name: 'Stadtbad Babelsberg',
-        lat: 52.40573,
-        lng: 13.08504,
-        resourceId: '75b42788-dda2-4f04-861a-d185727f0eaa',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/540f2d6e-8466-4a54-b463-a797039137d7/resource/75b42788-dda2-4f04-861a-d185727f0eaa'
+        lat: 52.4057289314038,
+        lng: 13.085039746744865,
+        resourceId: '42cbab4d-7f0a-4dcd-b48b-2febfb671275',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/e7d0cbea-7045-46f1-9dd7-95e6f39299bb/resource/42cbab4d-7f0a-4dcd-b48b-2febfb671275'
     },
     {
         id: 'krampnitz',
         name: 'Stadtteil Krampnitz',
         lat: 52.46062,
         lng: 13.04624,
-        resourceId: 'c17a45ee-50e0-4f81-a573-830a43f0f2cf',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/64a82427-5302-472e-998a-f5ae80dac4a8/resource/c17a45ee-50e0-4f81-a573-830a43f0f2cf'
+        resourceId: '97b07d43-bf05-44dd-bb56-e678d645169a',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/97c35f6e-9fc1-4314-bdc9-4a4bf2dd1b57/resource/97b07d43-bf05-44dd-bb56-e678d645169a'
     },
     {
         id: 'karl-liebknecht-station',
         name: 'Karl Liebknecht Station',
-        lat: 52.39915,
-        lng: 13.09471,
-        resourceId: '66464ee9-81db-4fa7-95ba-4a1fe5a52acd',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/8a99ff13-c388-4610-ba1a-063bc3c8c9a1/resource/66464ee9-81db-4fa7-95ba-4a1fe5a52acd'
+        lat: 52.399112,
+        lng: 13.094717,
+        resourceId: '9022c4f0-1bdf-41e9-8c4d-7ce2f4f9b13b',
+        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/649cb447-46d3-4a8c-b42e-7fa5fb56ff58/resource/9022c4f0-1bdf-41e9-8c4d-7ce2f4f9b13b'
     },
-
-    // --- Ab hier: Standorte, für die aktuell noch keine Sensor-Ressource auf der
-    //     CKAN-Plattform veröffentlicht ist. Koordinaten wurden über OpenStreetMap
-    //     ermittelt, damit die Punkte schon einmal richtig auf der Karte sitzen. ---
     {
         id: 'waldbad-templin',
         name: 'Waldbad Templin',
-        lat: 52.36030,
-        lng: 13.02094,
-        resourceId: null
+        lat: 52.360015,
+        lng: 13.020075,
+        resourceId: 'a0c1a961-7591-4a8a-a0f5-8cfc91c01b90',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/d1fe061d-c956-4ed8-a194-c3044b91e79a/resource/a0c1a961-7591-4a8a-a0f5-8cfc91c01b90',
+        hinweis: 'Der Sensor meldet selbst einen geo_point rund 8 km von hier entfernt (Nähe Stern/Kirchsteigfeld) - das wird als offensichtlich falsch erkannt und ignoriert, der Marker bleibt an dieser Koordinate. Vermutlich ist am Gerät noch eine alte Werks- oder Test-Koordinate hinterlegt; lohnt sich, das beim Hersteller/Installateur zu prüfen.'
     },
     {
         id: 'schule-am-schloss',
@@ -105,18 +100,18 @@ const STANDORTE = [
     {
         id: 'wasserspielplatz-volkspark',
         name: 'Wasserspielplatz Volkspark',
-        lat: 52.42274,
-        lng: 13.04870,
-        resourceId: null,
-        hinweis: 'Koordinate zeigt auf den Volkspark Potsdam allgemein, nicht exakt auf den Wasserspielplatz. Bitte bei Bedarf feinjustieren.'
+        lat: 52.41816,
+        lng: 13.04480,
+        resourceId: 'a25714ae-0270-4a0c-a0cc-d6bbcee906c0',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/b868240d-2568-41dd-bc24-495df7aa8c87/resource/a25714ae-0270-4a0c-a0cc-d6bbcee906c0'
     },
     {
         id: 'kepplerplatz',
         name: 'Kepplerplatz',
-        lat: 52.37698,
-        lng: 13.13002,
-        resourceId: null,
-        hinweis: 'Zugeordnet über "Johannes-Kepler-Platz" im Stern. Bitte prüfen, ob das der gemeinte Standort ist.'
+        lat: 52.37642,
+        lng: 13.12976,
+        resourceId: 'b42e144b-f1c9-44aa-a366-25060423d627',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/69ba82a7-d536-4e59-9ae4-75f329a40114/resource/b42e144b-f1c9-44aa-a366-25060423d627'
     },
     {
         id: 'stiftung-schloesser-gaerten',

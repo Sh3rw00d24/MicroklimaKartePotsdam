@@ -19,7 +19,8 @@
  * Einheiten-Umrechnung, keine Schätzung.
  *
  * Beim Luftdruck liefert der Sensor Pascal (z. B. 101380 Pa). Für die gewohnte
- * Einheit hPa wird durch 100 geteilt (101380 Pa = 1013,8 hPa).
+ * Einheit hPa wird durch 100 geteilt (101380 Pa = 1013,8 hPa) - das passiert
+ * schon bei normalisiereDatensatz() weiter unten, nicht erst hier.
  */
 
 const MESSFELD_INFO = {
@@ -100,7 +101,7 @@ const MESSFELD_INFO = {
         farbe: '#6366f1',
         diagrammTyp: 'line',
         nachkommastellen: 1,
-        umrechnen: (wertInPascal) => wertInPascal / 100,
+        umrechnen: (wert) => wert, // liegt dank normalisiereDatensatz() schon in hPa vor
         tag: 'Wetterlage',
         titel: 'Luftdruckverlauf',
         kurzbeschreibung: 'Luftdruck auf Stationshöhe – ein klassischer Hinweis auf die kommende Wetterentwicklung.',
@@ -166,6 +167,68 @@ function ermittleMessfeldInfo(feldName) {
 // Felder, die technischer Natur sind und nie als eigenes Diagramm dargestellt
 // werden sollen (Zeitstempel, Geräte-ID, Koordinate, interne Datenbank-ID).
 const TECHNISCHE_FELDER = ['_id', 'time', 'dev_eui', 'geo_point'];
+
+/**
+ * Nicht jede Wetterstation nennt ihre Felder gleich - und das ändert sich auch
+ * über die Zeit. Beobachtet wurden z. B. schon "Air Temperature", "Temperature",
+ * "Wind Direction Sensor", "Wind Direction" und "Wind direction" für dieselbe
+ * Messgröße. Statt jede einzelne Schreibweise fest einzutragen, wird hier nach
+ * einem Schlüsselwort gesucht (unabhängig von Groß-/Kleinschreibung) - das
+ * funktioniert automatisch auch für Schreibweisen, die es heute noch nicht gibt.
+ */
+function ermittleKanonischenFeldnamen(rohName) {
+    const schluessel = rohName.toLowerCase();
+
+    if (schluessel.includes('temperature')) return 'Air Temperature';
+    if (schluessel.includes('humid')) return 'Air Humidity';
+    if (schluessel.includes('light')) return 'Light Intensity';
+    if (schluessel.includes('uv')) return 'UV Index';
+    if (schluessel.includes('wind') && schluessel.includes('speed')) return 'Wind Speed';
+    if (schluessel.includes('wind')) return 'Wind Direction Sensor';
+    if (schluessel.includes('rain')) return 'Rain Gauge';
+    if (schluessel.includes('pressure')) return 'Barometric Pressure';
+
+    return rohName; // unbekanntes Feld: unverändert lassen, siehe ermittleMessfeldInfo()
+}
+
+/**
+ * Bringt einen einzelnen Messwert-Datensatz von CKAN auf einheitliche Feldnamen
+ * und Einheiten. Bei den Einheiten betrifft das aktuell nur den Luftdruck:
+ * manche Stationen senden ihn in Pascal (z. B. 101380), andere schon in
+ * Hektopascal (z. B. 1013). Ein Pascal-Wert liegt immer im fünfstelligen
+ * Bereich, ein hPa-Wert nie - diese Größenordnung reicht deshalb aus, um beide
+ * Fälle sicher zu unterscheiden.
+ */
+function normalisiereDatensatz(datensatz) {
+    const ergebnis = {};
+    for (const rohName of Object.keys(datensatz)) {
+        const kanonischerName = TECHNISCHE_FELDER.includes(rohName) ? rohName : ermittleKanonischenFeldnamen(rohName);
+        let wert = datensatz[rohName];
+
+        if (kanonischerName === 'Barometric Pressure' && typeof wert === 'number' && wert > 10000) {
+            wert = wert / 100;
+        }
+
+        // Falls zwei Rohnamen auf denselben kanonischen Namen zeigen, gewinnt
+        // der zuerst gefundene, echte Wert.
+        if (ergebnis[kanonischerName] === undefined || ergebnis[kanonischerName] === null) {
+            ergebnis[kanonischerName] = wert;
+        }
+    }
+    return ergebnis;
+}
+
+function normalisiereFelderliste(felder) {
+    const bereitsErfasst = new Set();
+    const ergebnis = [];
+    felder.forEach(feld => {
+        const kanonischerName = TECHNISCHE_FELDER.includes(feld.id) ? feld.id : ermittleKanonischenFeldnamen(feld.id);
+        if (bereitsErfasst.has(kanonischerName)) return;
+        bereitsErfasst.add(kanonischerName);
+        ergebnis.push({ id: kanonischerName, type: feld.type });
+    });
+    return ergebnis;
+}
 
 /**
  * Einstellungen für die Karten-Einfärbung ("Karten-Metrik"-Auswahl in der
@@ -236,9 +299,7 @@ const KARTEN_METRIKEN = {
         skalenBeschriftung: ['0', '5', '10+']
     },
     pressure: {
-        feld: 'Barometric Pressure',
-        // Umrechnung Pa -> hPa, damit die Skala zur Anzeige in den Diagrammen passt.
-        umrechnen: (wert) => wert / 100,
+        feld: 'Barometric Pressure', // liegt dank normalisiereDatensatz() schon in hPa vor
         legendentitel: 'Luftdruck (hPa)',
         erklaerung: 'Zeigt den Luftdruck als Farbverlauf auf der Karte.',
         min: 990, max: 1040,

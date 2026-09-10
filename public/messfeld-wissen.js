@@ -1,27 +1,7 @@
-/**
- * Wissen über die einzelnen Messwerte
- * ====================================
- *
- * Die SenseCAP-Wetterstationen schicken ihre Werte mit englischen Feldnamen aus
- * der Sensor-Firmware (z. B. "Air Temperature"). Dieses Objekt übersetzt jeden
- * dieser Feldnamen in das, was das Dashboard daraus macht: eine deutsche
- * Bezeichnung, eine Einheit, eine Farbe, ein Icon und die Erklärtexte für den
- * "Mehr erfahren"-Bereich unter jedem Diagramm.
- *
- * Kommt ein Sensor mit einem Feld, das hier nicht gelistet ist, wird unten in
- * MESSFELD_STANDARD ein einfacher Ersatzeintrag erzeugt, damit trotzdem nichts
- * kaputtgeht – neue Sensor-Typen brauchen also keine Code-Änderung, um wenigstens
- * angezeigt zu werden.
- *
- * Wichtig zur Windgeschwindigkeit: Die Station liefert sie in Metern pro Sekunde
- * (m/s), wie es für diesen Sensortyp üblich ist. Für die Anzeige wird sie mit dem
- * Faktor 3,6 in km/h umgerechnet (m/s × 3,6 = km/h) – das ist eine reine
- * Einheiten-Umrechnung, keine Schätzung.
- *
- * Beim Luftdruck liefert der Sensor Pascal (z. B. 101380 Pa). Für die gewohnte
- * Einheit hPa wird durch 100 geteilt (101380 Pa = 1013,8 hPa) - das passiert
- * schon bei normalisiereDatensatz() weiter unten, nicht erst hier.
- */
+// Anzeige-Wissen zu jedem Messwert: deutsche Bezeichnung, Einheit, Farbe, Icon,
+// Erklärtexte für "Mehr erfahren". Key = kanonischer Feldname (siehe unten).
+// Wind: Sensor liefert m/s, Anzeige in km/h (× 3,6). Luftdruck: Pa -> hPa
+// passiert schon in normalisiereDatensatz(), hier also bereits hPa.
 
 const MESSFELD_INFO = {
     'Air Temperature': {
@@ -138,12 +118,7 @@ const MESSFELD_INFO = {
     }
 };
 
-/**
- * Liefert die Anzeige-Informationen zu einem Messfeld. Ist das Feld unbekannt
- * (z. B. weil ein neuer Sensortyp ein Feld mitschickt, das oben noch nicht
- * eingetragen wurde), wird ein einfacher, funktionierender Standardeintrag
- * erzeugt statt eines Fehlers.
- */
+// Anzeige-Infos zu einem Feld, oder ein generischer Fallback für unbekannte Felder.
 function ermittleMessfeldInfo(feldName) {
     if (MESSFELD_INFO[feldName]) {
         return MESSFELD_INFO[feldName];
@@ -164,18 +139,13 @@ function ermittleMessfeldInfo(feldName) {
     };
 }
 
-// Felder, die technischer Natur sind und nie als eigenes Diagramm dargestellt
-// werden sollen (Zeitstempel, Geräte-ID, Koordinate, interne Datenbank-ID).
+// Technische Felder: nie als eigenes Diagramm darstellen.
 const TECHNISCHE_FELDER = ['_id', 'time', 'dev_eui', 'geo_point'];
 
-/**
- * Nicht jede Wetterstation nennt ihre Felder gleich - und das ändert sich auch
- * über die Zeit. Beobachtet wurden z. B. schon "Air Temperature", "Temperature",
- * "Wind Direction Sensor", "Wind Direction" und "Wind direction" für dieselbe
- * Messgröße. Statt jede einzelne Schreibweise fest einzutragen, wird hier nach
- * einem Schlüsselwort gesucht (unabhängig von Groß-/Kleinschreibung) - das
- * funktioniert automatisch auch für Schreibweisen, die es heute noch nicht gibt.
- */
+// Rohen Sensor-Feldnamen auf den kanonischen Namen bringen. Stationen nennen
+// Felder unterschiedlich und ändern das auch mal (z. B. "Wind Direction Sensor",
+// "Wind Direction", "Wind direction") - Schlüsselwort-Suche statt fester Liste
+// fängt auch künftige Schreibweisen automatisch ab.
 function ermittleKanonischenFeldnamen(rohName) {
     const schluessel = rohName.toLowerCase();
 
@@ -191,14 +161,9 @@ function ermittleKanonischenFeldnamen(rohName) {
     return rohName; // unbekanntes Feld: unverändert lassen, siehe ermittleMessfeldInfo()
 }
 
-/**
- * Bringt einen einzelnen Messwert-Datensatz von CKAN auf einheitliche Feldnamen
- * und Einheiten. Bei den Einheiten betrifft das aktuell nur den Luftdruck:
- * manche Stationen senden ihn in Pascal (z. B. 101380), andere schon in
- * Hektopascal (z. B. 1013). Ein Pascal-Wert liegt immer im fünfstelligen
- * Bereich, ein hPa-Wert nie - diese Größenordnung reicht deshalb aus, um beide
- * Fälle sicher zu unterscheiden.
- */
+// Ein Messwert-Datensatz -> einheitliche Feldnamen + Einheiten. Luftdruck-Sonderfall:
+// manche Stationen senden Pascal (fünfstellig), andere schon Hektopascal - Größenordnung
+// verrät welches. Zeigen zwei Rohnamen auf denselben kanonischen Namen, gewinnt der erste echte Wert.
 function normalisiereDatensatz(datensatz) {
     const ergebnis = {};
     for (const rohName of Object.keys(datensatz)) {
@@ -209,8 +174,6 @@ function normalisiereDatensatz(datensatz) {
             wert = wert / 100;
         }
 
-        // Falls zwei Rohnamen auf denselben kanonischen Namen zeigen, gewinnt
-        // der zuerst gefundene, echte Wert.
         if (ergebnis[kanonischerName] === undefined || ergebnis[kanonischerName] === null) {
             ergebnis[kanonischerName] = wert;
         }
@@ -218,6 +181,7 @@ function normalisiereDatensatz(datensatz) {
     return ergebnis;
 }
 
+// Feldliste (aus der API-Antwort) normalisieren und Duplikate entfernen.
 function normalisiereFelderliste(felder) {
     const bereitsErfasst = new Set();
     const ergebnis = [];
@@ -230,16 +194,8 @@ function normalisiereFelderliste(felder) {
     return ergebnis;
 }
 
-/**
- * Einstellungen für die Karten-Einfärbung ("Karten-Metrik"-Auswahl in der
- * Seitenleiste). Jeder Eintrag beschreibt, welches Sensor-Feld gemeint ist, wie
- * der Farbverlauf auf der Karte aussehen soll und wie ein roher Messwert in eine
- * Intensität zwischen 0 (kühlste Farbe) und 1 (wärmste Farbe) umgerechnet wird.
- *
- * min/max legen dabei die Skala fest, auf der die Wärmekarte normiert wird –
- * z. B. bedeutet das bei der Temperatur: 10 °C oder kälter = Intensität 0,
- * 40 °C oder wärmer = Intensität 1.
- */
+// Einstellungen für die Karten-Metrik-Auswahl: Sensor-Feld, Farbverlauf, und
+// min/max, auf die die Wärmekarte normiert wird (min = Intensität 0, max = Intensität 1).
 const KARTEN_METRIKEN = {
     temp: {
         feld: 'Air Temperature',

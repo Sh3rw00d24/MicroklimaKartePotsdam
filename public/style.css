@@ -172,6 +172,7 @@ body { font-family: var(--font-text); color: var(--text-main); background: #fff;
 /* Analytics Dashboard */
 .section-title { font-family: var(--font-display); font-size: 32px; color: var(--brand-dark); margin: 20px 0 30px; border-top: 1px solid var(--border-color); padding-top: 40px; }
 .info-panel { background: var(--bg-light); border: 1px solid var(--border-color); padding: 30px; margin-bottom: 20px; font-size: 15px; color: #475569; }
+.info-content-titel { color: var(--brand-dark); margin-bottom: 8px; }
 .quelle-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--accent-color); font-weight: 600; font-size: 14px; text-decoration: none; }
 .quelle-link:hover { text-decoration: underline; }
 .quelle-link .material-icons-round { font-size: 16px; }

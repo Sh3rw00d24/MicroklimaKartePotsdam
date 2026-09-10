@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stadtpuls Potsdam - Mikroklima</title>
+    <title>Stadtpuls Potsdam - Mikroklimakarte</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@600;700&display=swap" rel="stylesheet">
@@ -30,31 +30,31 @@
     <section class="hero">
         <div class="hero-inner container">
             <p class="hero-eyebrow">Live-Mikroklima · Potsdam</p>
-            <h1>Wie heiß, windig und trocken ist Potsdam gerade – Straße für Straße?</h1>
-            <p class="hero-text">Echte Wetterstationen im Stadtgebiet senden ihre Werte hierher. Ein Punkt auf der Karte anklicken zeigt die aktuellen Messwerte und den Verlauf jeder einzelnen Größe.</p>
+            <h1>Wie sind die klimatischen Bedingungen in Potsdam – Klimastationen in der Stadt</h1>
+            <p class="hero-text">Live Daten von Wetterstationen im Stadtgebiet senden ihre Werte hierher. Sowohl Aktuelle, als auch historische Werte werden angezeigt. Nicht jeder Standort hat einen Sensor, der alle Werte sendet.Ein Punkt auf der Karte anklicken zeigt die aktuellen Messwerte und den Verlauf jeder einzelnen Größe.</p>
         </div>
     </section>
 
     <section class="puls-sektion">
         <div class="container">
-            <h2 class="puls-titel">Was die Sensoren gerade melden</h2>
+            <h2 class="puls-titel">Dashboard: Aktuelles Klima in Potsdam</h2>
             <div class="puls-kacheln">
-                <div class="puls-kachel dunkel">
+                <div class="puls-kachel coral">
                     <span class="material-icons-round">thermostat</span>
                     <span class="puls-zahl" id="widget-avg-temp">-- °C</span>
                     <span class="puls-label">Ø-Temperatur im Stadtgebiet</span>
                 </div>
-                <div class="puls-kachel coral">
+                <div class="puls-kachel dunkel">
                     <span class="material-icons-round">air</span>
                     <span class="puls-zahl" id="widget-avg-wind">-- km/h</span>
                     <span class="puls-label">Ø-Windgeschwindigkeit</span>
                 </div>
-                <div class="puls-kachel dunkel">
+                <div class="puls-kachel coral">
                     <span class="material-icons-round">warning_amber</span>
                     <span class="puls-zahl" id="widget-warnings">0</span>
                     <span class="puls-label">Aktive Hitzewarnungen</span>
                 </div>
-                <div class="puls-kachel coral">
+                <div class="puls-kachel dunkel">
                     <span class="material-icons-round">sensors</span>
                     <span class="puls-zahl" id="widget-live-count">0 / 0</span>
                     <span class="puls-label">Standorte live angebunden</span>
@@ -89,7 +89,7 @@
                         <span class="material-icons-round">refresh</span>
                     </button>
                 </div>
-                <label for="metric-select">Karten-Metrik</label>
+                <label for="metric-select">Messwerte</label>
                 <select id="metric-select" class="custom-select">
                     <option value="temp">Temperatur (°C)</option>
                     <option value="wind">Windgeschwindigkeit (km/h)</option>
@@ -129,7 +129,7 @@
 
         <div class="info-panel">
             <div class="info-content">
-                <h3 style="color: var(--brand-dark); margin-bottom: 8px;">Live-Messwerte dieses Standorts</h3>
+                <h3 class="info-content-titel">Live-Messwerte dieses Standorts</h3>
                 <p id="dash-desc">Wählen Sie einen Standort auf der Karte aus.</p>
                 <a id="dash-quelle-link" class="quelle-link hidden" href="#" target="_blank" rel="noopener">
                     Rohdaten auf der Urbanen Datenplattform Potsdam ansehen <span class="material-icons-round">north_east</span>
@@ -170,10 +170,13 @@
                 <div class="brand-logo"></div>
                 <div>
                     <strong>Stadtpuls Potsdam · Mikroklima</strong>
-                    <p>Unabhängiges Dashboard auf Basis offener Sensordaten der Stadt Potsdam.</p>
+                    <p>Dashboard auf Basis offener Sensordaten der Stadt Potsdam.</p>
+                    <a class="footer-link" href="https://ckan.urbanedatenplattform-potsdam.de/group/" target="_blank" rel="noopener">
+                        Ckan-Datenplattform Potsdam <span class="material-icons-round">north_east</span>
+                    </a>
                 </div>
             </div>
-            <a class="footer-link" href="https://ckan.urbanedatenplattform-potsdam.de" target="_blank" rel="noopener">
+            <a class="footer-link" href="https://urbanedatenplattform-potsdam.de/" target="_blank" rel="noopener">
                 Urbane Datenplattform Potsdam <span class="material-icons-round">north_east</span>
             </a>
         </div>

@@ -1,12 +1,8 @@
-// Stadtpuls Potsdam – Kartenlogik, Datenabruf und Diagramme.
-// Holt sich alles über den lokalen Server (server.js), der wiederum die
-// Urbane Datenplattform Potsdam anspricht. Keine simulierten Werte.
+// Kartenlogik, Datenabruf und Diagramme für Stadtpuls Potsdam.
+// Daten kommen live über server.js von der Urbanen Datenplattform Potsdam.
 
-// leaflet.heat stolpert gelegentlich, wenn die Karte bewegt wird während die
-// Wärmeebene kaum Punkte zeigt (IndexSizeError in ihrer internen draw()-Funktion).
-// Ein einzelner fehlgeschlagener Zeichendurchgang ist harmlos, darf aber nicht die
-// Seite lahmlegen - deshalb wird die Funktion hier robust gemacht, bevor irgendwas
-// anderes läuft.
+// Patch: leaflet.heat wirft beim Neuzeichnen gelegentlich einen harmlosen
+// IndexSizeError. Hier abgefangen, damit das nie die ganze Seite blockiert.
 if (window.L && L.HeatLayer && L.HeatLayer.prototype._redraw) {
     const urspruenglichesRedraw = L.HeatLayer.prototype._redraw;
     L.HeatLayer.prototype._redraw = function (...args) {
@@ -20,8 +16,9 @@ if (window.L && L.HeatLayer && L.HeatLayer.prototype._redraw) {
 
 const HITZEWARNUNG_SCHWELLE_GRAD = 34;
 const AUTOMATISCHE_AKTUALISIERUNG_MS = 5 * 60 * 1000;
-const ANZAHL_FUER_AKTUELLEN_WERT = 20; // mehr als 1, um einen leeren Datensatz überspringen zu können
+const ANZAHL_FUER_AKTUELLEN_WERT = 20; // Puffer, um leere Datensätze überspringen zu können
 const ANZAHL_FUER_VERLAUF = 10000;
+const MAX_PLAUSIBLE_ABWEICHUNG_KM = 1.5; // gemeldete Sensor-Position weiter weg = wird ignoriert
 
 const ZEITRAUM_IN_MILLISEKUNDEN = {
     '24h': 24 * 60 * 60 * 1000,
@@ -54,18 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(aktualisiereAlleAktuellenWerte, AUTOMATISCHE_AKTUALISIERUNG_MS);
 });
 
-// --- Karte ---------------------------------------------------------------
+// --- Karte ---
 
+// Baut Karte, Kachel-Layer, Wärme- und Windpfeil-Ebene auf.
 function initialisiereKarte() {
-    // Etwas großzügiger geschnitten als der reine Stadtkern, damit Krampnitz im
-    // Norden und der Campus Golm im Westen noch mit drauf sind.
-    const kartenGrenzen = L.latLngBounds([[52.34, 12.94], [52.48, 13.17]]);
+    const kartenGrenzen = L.latLngBounds([[52.34, 12.94], [52.48, 13.17]]); // Potsdam + Rand
 
     karte = L.map('map', {
         zoomControl: true,
-        // Eigene Steuerung statt Leaflets eingebautem Scroll-Zoom (siehe unten) -
-        // sonst bleibt die Seite beim Scrollen über der Karte hängen.
-        scrollWheelZoom: false,
+        scrollWheelZoom: false, // eigene Steuerung, siehe initialisiereScrollZoom()
         maxBounds: kartenGrenzen,
         maxBoundsViscosity: 0.8,
         minZoom: 12,
@@ -90,12 +84,12 @@ function initialisiereKarte() {
     karte.on('zoom', aktualisiereWindpfeilGroesse);
     karte.on('movestart zoomstart', schliesseStandortPopup);
 
-    // Falls die Karte beim ersten Rendern noch keine korrekte Größe kennt (z. B.
-    // weil das Stylesheet einen Moment länger lädt), hier nochmal nachmessen.
+    // Größe erst beim ersten Rendern oft falsch (Stylesheet noch nicht fertig) - neu vermessen.
     window.addEventListener('load', () => karte.invalidateSize());
     setTimeout(() => karte.invalidateSize(), 200);
 }
 
+// Legt für jeden Standort einen Marker mit Klick-Handler an.
 function erzeugeStandortMarker() {
     STANDORTE.forEach(standort => {
         const istPlatzhalter = !standort.resourceId;
@@ -115,6 +109,7 @@ function erzeugeStandortMarker() {
     });
 }
 
+// Hebt den angeklickten Marker optisch hervor, alle anderen zurücksetzen.
 function markiereAusgewaehltenMarker(standortId) {
     Object.keys(markerNachStandortId).forEach(id => {
         const element = document.getElementById(`marker-${id}`);
@@ -122,10 +117,7 @@ function markiereAusgewaehltenMarker(standortId) {
     });
 }
 
-// Scrollt man mit der Maus über die Karte, soll normalerweise einfach die Seite
-// weiterscrollen (wie bei Google Maps eingebettet) - nur mit gedrückter
-// Strg-/Cmd-Taste wird tatsächlich gezoomt. Ohne das bleibt man beim Scrollen
-// über der Karte hängen, statt weiter durch die Seite zu kommen.
+// Scroll über der Karte scrollt normal die Seite; nur Strg/Cmd+Scroll zoomt (wie eingebettetes Google Maps).
 function initialisiereScrollZoom() {
     const mapElement = document.getElementById('map');
     let hinweisTimeout;
@@ -136,20 +128,19 @@ function initialisiereScrollZoom() {
             hinweis.classList.add('sichtbar');
             clearTimeout(hinweisTimeout);
             hinweisTimeout = setTimeout(() => hinweis.classList.remove('sichtbar'), 1000);
-            return; // kein preventDefault -> die Seite scrollt ganz normal weiter
+            return; // kein preventDefault -> Seite scrollt normal weiter
         }
 
         ereignis.preventDefault();
         const punkt = karte.mouseEventToContainerPoint(ereignis);
-        // Ganze Zoomstufen, keine halben: Leaflet rundet Zwischenwerte auf volle
-        // Stufen, und 0,5 rundet in JavaScript immer nach oben - beim Rauszoomen
-        // (-0,5) landete man dadurch wieder auf der ursprünglichen Stufe.
+        // Ganze Stufen: 0,5 würde JS-Rundung wegen konsequent aufrunden nie rauszoomen können.
         karte.setZoomAround(punkt, karte.getZoom() + (ereignis.deltaY < 0 ? 1 : -1));
     }, { passive: false });
 }
 
-// --- Bedienelemente --------------------------------------------------------
+// --- Bedienelemente ---
 
+// Verdrahtet Metrik-Auswahl, Aktualisieren-Button, Zeitraum-Buttons und Diagramm-Klicks (delegiert).
 function verknuepfeSteuerelemente() {
     document.getElementById('metric-select').addEventListener('change', aktualisiereKartenfarben);
 
@@ -174,8 +165,7 @@ function verknuepfeSteuerelemente() {
         });
     });
 
-    // Diagramm-Karten (Mehr-erfahren-Links, Zoom-zurücksetzen) entstehen erst zur
-    // Laufzeit, daher ein einziger delegierter Klick-Beobachter für beides.
+    // Diagramm-Karten entstehen erst zur Laufzeit -> ein delegierter Handler für beide Buttons.
     document.getElementById('dashboard-tiles').addEventListener('click', (ereignis) => {
         const zoomButton = ereignis.target.closest('.zoom-reset-btn');
         if (zoomButton) {
@@ -196,8 +186,9 @@ function verknuepfeSteuerelemente() {
     });
 }
 
-// --- Aktuelle Werte holen (Karte, Popup, Live-Kennzahlen) -----------------
+// --- Datenabruf ---
 
+// Holt aktuelle Werte für alle Standorte und stößt Karte/Popup/Widgets/Dashboard-Refresh an.
 async function aktualisiereAlleAktuellenWerte() {
     const standorteMitSensor = STANDORTE.filter(standort => standort.resourceId);
 
@@ -234,14 +225,12 @@ async function aktualisiereAlleAktuellenWerte() {
     }
 }
 
+// Ruft den Server ab und normalisiert Feldnamen/Einheiten (Sensoren nennen Felder unterschiedlich).
 async function holeMesswerte(resourceId, limit) {
     try {
         const antwort = await fetch(`/api/messwerte/${resourceId}?limit=${limit}`);
         const daten = await antwort.json();
 
-        // Verschiedene Stationen nennen dieselbe Messgröße unterschiedlich (siehe
-        // messfeld-wissen.js) - hier auf einheitliche Namen und Einheiten bringen,
-        // damit der Rest der Seite nur noch eine Version davon kennen muss.
         if (daten.erfolgreich) {
             daten.messwerte = daten.messwerte.map(normalisiereDatensatz);
             daten.felder = normalisiereFelderliste(daten.felder);
@@ -253,9 +242,7 @@ async function holeMesswerte(resourceId, limit) {
     }
 }
 
-// CKAN liefert neueste Datensätze zuerst, manche davon aber komplett leer (ein
-// fehlgeschlagener Sendeversuch der Station). Hier wird der erste Datensatz mit
-// tatsächlichem Inhalt gesucht.
+// Erster Datensatz mit echtem Inhalt (überspringt leere Fehlversuche der Station).
 function findeNeuestenGueltigenDatensatz(messwerte) {
     for (const datensatz of messwerte) {
         const hatWert = Object.keys(datensatz).some(feld =>
@@ -266,13 +253,7 @@ function findeNeuestenGueltigenDatensatz(messwerte) {
     return messwerte[0] || null;
 }
 
-// Übernimmt die vom Sensor gemeldete Position als tatsächliche Markerposition,
-// statt sich auf die geschätzte Koordinate aus config.js zu verlassen.
-// Ab welcher Entfernung zur hinterlegten Koordinate eine vom Sensor gemeldete
-// Position als unplausibel gilt (z. B. eine noch nicht aktualisierte
-// Werkskoordinate) und deshalb ignoriert wird, statt den Marker zu verschieben.
-const MAX_PLAUSIBLE_ABWEICHUNG_KM = 1.5;
-
+// Übernimmt die Sensor-Position (geo_point), verwirft aber unplausible Ausreißer (siehe MAX_PLAUSIBLE_ABWEICHUNG_KM).
 function aktualisierePositionAusGeoPunkt(standort, datensatz) {
     if (!datensatz || !datensatz.geo_point) return;
     const teile = datensatz.geo_point.split(',').map(Number);
@@ -282,7 +263,7 @@ function aktualisierePositionAusGeoPunkt(standort, datensatz) {
 
     const abweichungKm = entfernungInKm(standort.lat, standort.lng, lat, lng);
     if (abweichungKm > MAX_PLAUSIBLE_ABWEICHUNG_KM) {
-        console.warn(`${standort.name}: gemeldete Position ist ${abweichungKm.toFixed(1)} km von der hinterlegten Koordinate entfernt und wird ignoriert.`);
+        console.warn(`${standort.name}: gemeldete Position ist ${abweichungKm.toFixed(1)} km entfernt und wird ignoriert.`);
         return;
     }
 
@@ -293,9 +274,7 @@ function aktualisierePositionAusGeoPunkt(standort, datensatz) {
     if (marker) marker.setLatLng([lat, lng]);
 }
 
-// Einfache, für diese Stadtgröße genaue genug Abstandsberechnung (Äquirechteck-
-// Näherung) - keine Notwendigkeit für die aufwendigere Haversine-Formel auf
-// diesen kurzen Distanzen.
+// Abstand in km (Äquirechteck-Näherung, für diese Distanzen genau genug).
 function entfernungInKm(lat1, lng1, lat2, lng2) {
     const erdradiusKm = 6371;
     const deltaLatRad = (lat2 - lat1) * Math.PI / 180;
@@ -305,6 +284,7 @@ function entfernungInKm(lat1, lng1, lat2, lng2) {
     return Math.sqrt(x * x + deltaLatRad * deltaLatRad) * erdradiusKm;
 }
 
+// Zeigt den Verbindungshinweis, wenn kein einziger Sensor erreichbar war.
 function aktualisiereVerbindungsstatus(standorteMitSensor) {
     if (standorteMitSensor.length === 0) return;
 
@@ -315,8 +295,9 @@ function aktualisiereVerbindungsstatus(standorteMitSensor) {
     if (livePunkt) livePunkt.classList.toggle('getrennt', alleFehlgeschlagen);
 }
 
-// --- Karteneinfärbung, Windpfeile, Legende --------------------------------
+// --- Karteneinfärbung, Windpfeile, Legende ---
 
+// Färbt die Karte nach gewählter Metrik ein und zeichnet bei Wind zusätzlich Richtungspfeile.
 function aktualisiereKartenfarben() {
     const ausgewaehlteMetrikId = document.getElementById('metric-select').value;
     const metrik = KARTEN_METRIKEN[ausgewaehlteMetrikId];
@@ -354,8 +335,7 @@ function aktualisiereKartenfarben() {
                 html: `<div class="wind-arrow" data-dir="${richtung}"><svg viewBox="0 0 24 24"><path d="M12 2L16 10H13V22H11V10H8L12 2Z"/></svg></div>`,
                 className: '', iconSize: [24, 24], iconAnchor: [12, 12]
             });
-            // interactive: false ist hier wichtig - sonst sitzt der Pfeil genau auf
-            // dem Standort-Punkt und fängt dessen Klicks ab.
+            // interactive:false, sonst blockiert der Pfeil den Klick auf den Marker darunter.
             L.marker([standort.lat, standort.lng], { icon: pfeilSymbol, interactive: false }).addTo(windPfeilEbene);
         });
     }
@@ -365,6 +345,7 @@ function aktualisiereKartenfarben() {
     aktualisiereHitzewarnungen();
 }
 
+// Aktueller Rohwert eines Felds für einen Standort, oder null.
 function leseAktuellenRohwert(standort, feldName) {
     const eintrag = aktuelleWerteNachStandortId[standort.id];
     if (!eintrag || !eintrag.werte) return null;
@@ -372,6 +353,7 @@ function leseAktuellenRohwert(standort, feldName) {
     return (wert === null || wert === undefined) ? null : wert;
 }
 
+// Skaliert die Windpfeile passend zur aktuellen Zoomstufe.
 function aktualisiereWindpfeilGroesse() {
     const zoomstufe = karte.getZoom();
     const skalierung = 2.5 - ((zoomstufe - 13) * 0.5);
@@ -380,6 +362,7 @@ function aktualisiereWindpfeilGroesse() {
     });
 }
 
+// Aktualisiert Titel, Farbverlauf und Skalenbeschriftung der Kartenlegende.
 function aktualisiereLegende(metrik) {
     document.getElementById('legend-title').innerText = metrik.legendentitel;
     document.getElementById('legend-labels').innerHTML =
@@ -391,8 +374,9 @@ function aktualisiereLegende(metrik) {
         : `linear-gradient(to right, ${Object.values(metrik.farbverlauf).join(', ')})`;
 }
 
-// --- Hitzewarnungen --------------------------------------------------------
+// --- Hitzewarnungen ---
 
+// Markiert Standorte über der Hitzeschwelle und zeigt bei neuen Fällen einen Toast.
 function aktualisiereHitzewarnungen() {
     let anzahl = 0;
 
@@ -417,6 +401,7 @@ function aktualisiereHitzewarnungen() {
     document.getElementById('widget-warnings').innerText = anzahl;
 }
 
+// Blendet eine Toast-Meldung für eine neue Hitzewarnung ein (verschwindet nach 6s).
 function zeigeHitzewarnungsToast(standort, temperatur) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -429,8 +414,9 @@ function zeigeHitzewarnungsToast(standort, temperatur) {
     }, 6000);
 }
 
-// --- Live-Kennzahlen Seitenleiste ------------------------------------------
+// --- Live-Kennzahlen ---
 
+// Berechnet Ø-Temperatur, Ø-Wind und die Live-Anzahl für die Kacheln oben.
 function aktualisiereLiveWidgets() {
     const temperaturen = [];
     const windgeschwindigkeitenKmh = [];
@@ -460,17 +446,18 @@ function aktualisiereLiveWidgets() {
     );
 }
 
+// Durchschnitt eines Zahlen-Arrays.
 function mittelwert(zahlen) {
     return zahlen.reduce((summe, wert) => summe + wert, 0) / zahlen.length;
 }
 
+// Schreibt die aktuelle Uhrzeit in den Status-Bereich.
 function zeigeLetzteAktualisierungszeit() {
     document.getElementById('letzte-aktualisierung').innerText =
         new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Lässt eine angezeigte Zahl sanft zum neuen Wert hochlaufen statt abrupt zu
-// springen. Text drumherum (Einheit, Himmelsrichtung) bleibt unangetastet.
+// Lässt eine angezeigte Zahl sanft zum neuen Wert hochlaufen statt zu springen; Text drumherum bleibt.
 function animiereZahlwechsel(element, zielText) {
     const alterText = element.dataset.rohwert || element.innerText;
     const alteZahl = parseFloat(alterText.replace(',', '.'));
@@ -501,14 +488,9 @@ function animiereZahlwechsel(element, zielText) {
     requestAnimationFrame(schritt);
 }
 
-// --- Standort-Popup ---------------------------------------------------------
-//
-// Bewusst kein natives Leaflet-Popup: Leaflet schneidet Popups am Rand des
-// Kartencontainers ab, und bei acht Messwerten passte die Karte oft nicht mehr
-// vollständig hinein. Diese Version hängt als eigenes Element direkt am body
-// und wird per JavaScript neben den angeklickten Marker positioniert - sie kann
-// also nie von der Karte beschnitten werden.
+// --- Standort-Popup (eigenes Element statt Leaflet-Popup, damit es nie am Kartenrand abgeschnitten wird) ---
 
+// Verdrahtet Schließen-Button, Klick außerhalb, Escape sowie Scroll/Resize (schließen bzw. neu positionieren).
 function initialisierePopupVerhalten() {
     const popupElement = document.getElementById('standort-popup');
 
@@ -531,6 +513,7 @@ function initialisierePopupVerhalten() {
     window.addEventListener('resize', positioniereStandortPopup);
 }
 
+// Öffnet und positioniert das Popup für einen Standort.
 function oeffnePopupFuerStandort(standort) {
     offenerPopupStandortId = standort.id;
     const popupElement = document.getElementById('standort-popup');
@@ -539,6 +522,7 @@ function oeffnePopupFuerStandort(standort) {
     positioniereStandortPopup();
 }
 
+// Platziert das Popup neben seinem Marker, geklemmt auf den sichtbaren Bildschirmbereich.
 function positioniereStandortPopup() {
     if (!offenerPopupStandortId) return;
     const marker = markerNachStandortId[offenerPopupStandortId];
@@ -563,11 +547,13 @@ function positioniereStandortPopup() {
     popupElement.style.top = `${oben}px`;
 }
 
+// Schließt das Popup.
 function schliesseStandortPopup() {
     offenerPopupStandortId = null;
     document.getElementById('standort-popup').classList.remove('ist-offen');
 }
 
+// Aktualisiert den Inhalt des gerade offenen Popups (z. B. nach einem Live-Refresh).
 function aktualisiereOffenesPopup() {
     if (!offenerPopupStandortId) return;
     const standort = STANDORTE.find(s => s.id === offenerPopupStandortId);
@@ -576,6 +562,7 @@ function aktualisiereOffenesPopup() {
     positioniereStandortPopup();
 }
 
+// Kopfbereich des Popups: Titel + Schließen-Button.
 function erzeugePopupCoverHtml(titel, zusatzKlasse) {
     return `
         <div class="popup-cover ${zusatzKlasse || ''}">
@@ -586,6 +573,7 @@ function erzeugePopupCoverHtml(titel, zusatzKlasse) {
         </div>`;
 }
 
+// Baut den kompletten Popup-Inhalt: Platzhalter, Fehler/Ladezustand oder echte Messwerte.
 function erzeugePopupInhalt(standort) {
     if (!standort.resourceId) {
         return `
@@ -638,24 +626,29 @@ function erzeugePopupInhalt(standort) {
         </div>`;
 }
 
+// Eine Messwert-Zeile im Popup (Icon, Bezeichnung, formatierter Wert).
 function erzeugePopupMesswertZeile(feldName, rohwert) {
     if (rohwert === null || rohwert === undefined) return '';
-
     const info = ermittleMessfeldInfo(feldName);
-    const wert = info.umrechnen(rohwert);
-    const anzeigeText = feldName === 'Wind Direction Sensor'
-        ? `${wert.toFixed(0)}° (${bestimmeHimmelsrichtung(wert)})`
-        : `${wert.toFixed(info.nachkommastellen)}${info.einheit ? ' ' + info.einheit : ''}`;
-
     return `
         <div class="popup-metric">
             <span class="popup-metric-label"><span class="material-icons-round" style="font-size:16px;">${info.icon}</span> ${info.bezeichnung}</span>
-            <span class="popup-metric-val">${anzeigeText}</span>
+            <span class="popup-metric-val">${formatiereMesswert(feldName, rohwert)}</span>
         </div>`;
 }
 
-// --- Standortanalyse (Diagrammbereich) --------------------------------------
+// Rohwert -> fertiger Anzeigetext (Einheit anhängen, Windrichtung als Himmelsrichtung).
+function formatiereMesswert(feldName, rohwert) {
+    const info = ermittleMessfeldInfo(feldName);
+    const wert = info.umrechnen(rohwert);
+    return feldName === 'Wind Direction Sensor'
+        ? `${wert.toFixed(0)}° ${bestimmeHimmelsrichtung(wert)}`
+        : `${wert.toFixed(info.nachkommastellen)}${info.einheit ? ' ' + info.einheit : ''}`;
+}
 
+// --- Standortanalyse (Diagrammbereich) ---
+
+// Öffnet die Standortanalyse unten auf der Seite für den gewählten Standort.
 function zeigeStandortImDashboard(standort) {
     const bereich = document.getElementById('dashboard-section');
     if (bereich.classList.contains('hidden')) {
@@ -683,6 +676,7 @@ function zeigeStandortImDashboard(standort) {
     ladeUndZeigeVerlauf(standort);
 }
 
+// Aktualisiert Aktuell-Werte und Hitzewarnung im Dashboard, ohne die Diagramme neu zu zeichnen.
 function aktualisiereAktuelleWerteImDashboard(standort) {
     const eintrag = aktuelleWerteNachStandortId[standort.id];
     if (!eintrag || !eintrag.werte) return;
@@ -699,13 +693,7 @@ function aktualisiereAktuelleWerteImDashboard(standort) {
             spanElement.innerText = '--';
             return;
         }
-
-        const info = ermittleMessfeldInfo(feldName);
-        const wert = info.umrechnen(rohwert);
-        const anzeigeText = feldName === 'Wind Direction Sensor'
-            ? `${wert.toFixed(0)}° ${bestimmeHimmelsrichtung(wert)}`
-            : `${wert.toFixed(info.nachkommastellen)}${info.einheit ? ' ' + info.einheit : ''}`;
-        animiereZahlwechsel(spanElement, anzeigeText);
+        animiereZahlwechsel(spanElement, formatiereMesswert(feldName, rohwert));
     });
 
     const temperatur = eintrag.werte['Air Temperature'];
@@ -719,6 +707,7 @@ function aktualisiereAktuelleWerteImDashboard(standort) {
     }
 }
 
+// Lädt (oder nutzt gecachte) Messhistorie, filtert nach Zeitraum und zeichnet alle Diagramme.
 async function ladeUndZeigeVerlauf(standort) {
     let zwischengespeichert = verlaufCacheNachStandortId[standort.id];
 
@@ -742,8 +731,7 @@ async function ladeUndZeigeVerlauf(standort) {
         ? zwischengespeichert.messwerte.filter(datensatz => (jetzt - new Date(datensatz.time).getTime()) <= grenzeInMs)
         : zwischengespeichert.messwerte;
 
-    // CKAN liefert neueste zuerst, für die Diagramme wird chronologisch gebraucht.
-    const chronologisch = [...gefiltert].reverse();
+    const chronologisch = [...gefiltert].reverse(); // CKAN liefert neueste zuerst, Diagramme brauchen chronologisch
 
     const felderMitDaten = zwischengespeichert.felder.filter(feldName =>
         chronologisch.some(datensatz => datensatz[feldName] !== null && datensatz[feldName] !== undefined)
@@ -754,6 +742,7 @@ async function ladeUndZeigeVerlauf(standort) {
     zeichneDiagramme(felderMitDaten, chronologisch);
 }
 
+// Zeigt einen Lade-Hinweis, während die Historie vom Server kommt.
 function zeigeLadePlatzhalter() {
     loescheAlleDiagramme();
     document.getElementById('dashboard-tiles').innerHTML = `
@@ -762,6 +751,7 @@ function zeigeLadePlatzhalter() {
         </div>`;
 }
 
+// Baut pro Messwert eine Diagramm-Karte (HTML-Gerüst, Chart.js folgt in zeichneDiagramme).
 function erzeugeDiagrammKarten(felder) {
     loescheAlleDiagramme();
     const container = document.getElementById('dashboard-tiles');
@@ -811,6 +801,7 @@ function erzeugeDiagrammKarten(felder) {
     container.innerHTML = karten + erzeugeGlossarKarteHtml();
 }
 
+// Zeichnet für jedes Feld das passende Diagramm (Zeitreihe oder Windrose).
 function zeichneDiagramme(felder, chronologischeDaten) {
     Chart.defaults.font.family = "'Titillium Web', sans-serif";
     Chart.defaults.color = '#334155';
@@ -828,6 +819,7 @@ function zeichneDiagramme(felder, chronologischeDaten) {
     });
 }
 
+// Linien-/Balkendiagramm mit Zoom/Pan für einen Messwert über die Zeit.
 function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten) {
     const info = ermittleMessfeldInfo(feldName);
     const werte = chronologischeDaten.map(datensatz => {
@@ -835,9 +827,7 @@ function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten)
         return (rohwert === null || rohwert === undefined) ? null : info.umrechnen(rohwert);
     });
 
-    // Bei "Gesamter Zeitraum" kommen schnell mehrere tausend Messpunkte zusammen -
-    // ohne diese Anpassung würde Chart.js für jeden einen sichtbaren Kreis malen,
-    // was die Linie unleserlich und das Rendern spürbar langsam machen würde.
+    // Viele Punkte (z. B. "Gesamter Zeitraum"): keine Punktmarker, keine Animation - sonst lahmt das Rendern.
     const vieleDatenpunkte = werte.length > 300;
 
     return new Chart(canvas.getContext('2d'), {
@@ -851,7 +841,7 @@ function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten)
                 backgroundColor: info.diagrammTyp === 'bar' ? info.farbe : hexZuRgba(info.farbe, 0.12),
                 fill: info.diagrammTyp === 'line',
                 tension: 0.35,
-                spanGaps: true, // fehlende Messwerte reißen die Linie nicht ab, sondern werden übersprungen
+                spanGaps: true, // Lücken unterbrechen die Linie nicht
                 pointRadius: vieleDatenpunkte ? 0 : 3,
                 pointHoverRadius: 5,
                 borderWidth: vieleDatenpunkte ? 1.5 : 2
@@ -875,8 +865,7 @@ function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten)
     });
 }
 
-// Windrichtung bekommt keine Zeitreihe, sondern eine echte Windrose: Häufigkeit
-// pro Himmelsrichtung im gewählten Zeitraum, als Kreisdiagramm.
+// Windrose statt Zeitreihe: Häufigkeit pro Himmelsrichtung im gewählten Zeitraum.
 function zeichneWindrose(canvas, chronologischeDaten) {
     const haeufigkeiten = new Array(16).fill(0);
     let gesamtAnzahl = 0;
@@ -918,11 +907,13 @@ function zeichneWindrose(canvas, chronologischeDaten) {
     });
 }
 
+// Zerstört alle offenen Chart.js-Instanzen (vor jedem Neuaufbau nötig).
 function loescheAlleDiagramme() {
     Object.values(diagrammInstanzenNachFeld).forEach(instanz => instanz.destroy());
     diagrammInstanzenNachFeld = {};
 }
 
+// Feste Glossar-Karte, die am Ende jeder Standortanalyse steht.
 function erzeugeGlossarKarteHtml() {
     return `
         <div class="chart-card glossary-card-wrapper">
@@ -944,16 +935,19 @@ function erzeugeGlossarKarteHtml() {
         </div>`;
 }
 
-// --- Kleinkram ---------------------------------------------------------
+// --- Kleinkram ---
 
+// Feldname -> sichere HTML-ID.
 function feldIdFuerDom(feldName) {
     return feldName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
+// Gradzahl -> Himmelsrichtung.
 function bestimmeHimmelsrichtung(gradzahl) {
     return HIMMELSRICHTUNGEN[Math.round(gradzahl / 22.5) % 16];
 }
 
+// Zeitstempel -> lesbares deutsches Datum mit Uhrzeit.
 function formatiereZeitpunkt(zeitpunktText) {
     if (!zeitpunktText) return '–';
     const datum = new Date(zeitpunktText);
@@ -961,10 +955,12 @@ function formatiereZeitpunkt(zeitpunktText) {
     return datum.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
 }
 
+// Zeitstempel -> kurze Achsenbeschriftung für Diagramme.
 function formatiereZeitpunktFuerAchse(zeitpunktText) {
     return new Date(zeitpunktText).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+// Hex-Farbe -> rgba() mit gegebener Deckkraft.
 function hexZuRgba(hexFarbe, deckkraft) {
     const zahl = parseInt(hexFarbe.slice(1), 16);
     return `rgba(${(zahl >> 16) & 255}, ${(zahl >> 8) & 255}, ${zahl & 255}, ${deckkraft})`;

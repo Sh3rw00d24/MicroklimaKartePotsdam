@@ -1,24 +1,10 @@
-/**
- * Standort-Konfiguration
- * ======================
- *
- * Hier stehen alle Messstandorte, die auf der Karte erscheinen sollen. Für jeden
- * Standort gibt es genau EIN wichtiges Feld: "resourceId". Das ist die sogenannte
- * "resource_id" aus der CKAN-Datenplattform (steht in jedem API-Link, z. B. bei
- *   https://ckan.urbanedatenplattform-potsdam.de/dataset/.../resource/<HIER STEHT SIE>/download/...
- * oder direkt im JavaScript-Beispielcode der Plattform als "resource_id: '...'").
- *
- * Sobald ein neuer Sensor an einem Standort in Betrieb geht, muss hier nur die
- * passende resourceId eingetragen werden – der Standort läuft dann automatisch mit
- * echten Live-Daten. Solange resourceId noch "null" ist, zeigt das Dashboard den
- * Standort als "Sensor noch nicht angebunden" an.
- *
- * lat/lng sind die Koordinaten, an denen der Punkt auf der Karte erscheint. Sobald
- * ein Sensor Daten mit einem eigenen "geo_point" sendet, übernimmt das Dashboard
- * automatisch dessen tatsächliche Position – lat/lng hier ist dann nur noch die
- * Startposition, bevor die erste Antwort da ist.
- * 
- **/
+// Messstandorte auf der Karte.
+// resourceId: CKAN-Ressourcen-ID des Sensors (aus dessen API-Link/Datensatz-URL).
+//   null = noch kein Sensor -> Dashboard zeigt "noch nicht angebunden".
+// lat/lng: manuell gepflegt. Der geo_point aus der API entspricht dem LoRaWAN-
+//   Gateway, nicht zwingend dem Sensor - script.js übernimmt ihn nur, wenn er
+//   nah genug an dieser Koordinate liegt (siehe MAX_PLAUSIBLE_ABWEICHUNG_KM).
+// datenquelleUrl: Link zum Rohdatensatz auf der UDP (optional, wird im Popup gezeigt).
 const STANDORTE = [
     {
         id: 'steubenplatz-alter-markt',
@@ -26,7 +12,7 @@ const STANDORTE = [
         lat: 52.39533,
         lng: 13.05943,
         resourceId: '07f7d2ba-4885-4550-82af-839278ed410b',
-        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/c986ce1b-9f02-491f-a236-10a9dfbc8f3e/resource/07f7d2ba-4885-4550-82af-839278ed410b'
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/c986ce1b-9f02-491f-a236-10a9dfbc8f3e/resource/07f7d2ba-4885-4550-82af-839278ed410b'
     },
     {
         id: 'stadtbad-babelsberg',
@@ -50,7 +36,7 @@ const STANDORTE = [
         lat: 52.399112,
         lng: 13.094717,
         resourceId: '9022c4f0-1bdf-41e9-8c4d-7ce2f4f9b13b',
-        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/649cb447-46d3-4a8c-b42e-7fa5fb56ff58/resource/9022c4f0-1bdf-41e9-8c4d-7ce2f4f9b13b'
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/649cb447-46d3-4a8c-b42e-7fa5fb56ff58/resource/9022c4f0-1bdf-41e9-8c4d-7ce2f4f9b13b'
     },
     {
         id: 'waldbad-templin',
@@ -59,7 +45,7 @@ const STANDORTE = [
         lng: 13.020075,
         resourceId: 'a0c1a961-7591-4a8a-a0f5-8cfc91c01b90',
         datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/d1fe061d-c956-4ed8-a194-c3044b91e79a/resource/a0c1a961-7591-4a8a-a0f5-8cfc91c01b90',
-        hinweis: 'Der Sensor meldet selbst einen geo_point rund 8 km von hier entfernt (Nähe Stern/Kirchsteigfeld) - das wird als offensichtlich falsch erkannt und ignoriert, der Marker bleibt an dieser Koordinate. Vermutlich ist am Gerät noch eine alte Werks- oder Test-Koordinate hinterlegt; lohnt sich, das beim Hersteller/Installateur zu prüfen.'
+        hinweis: 'Gemeldeter geo_point liegt rund 8 km entfernt (Nähe Stern/Kirchsteigfeld) - das ist das LoRaWAN-Gateway, nicht der Sensor, und wird daher ignoriert (siehe MAX_PLAUSIBLE_ABWEICHUNG_KM in script.js). Marker bleibt an dieser Koordinate.'
     },
     {
         id: 'schule-am-schloss',

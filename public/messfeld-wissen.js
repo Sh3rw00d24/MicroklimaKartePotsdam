@@ -60,21 +60,7 @@ const MESSFELD_INFO = {
         interpretation: 'Jeder Balken steht für eine Himmelsrichtung, seine Länge für die Häufigkeit. Sticht eine Richtung deutlich heraus, war das im gewählten Zeitraum die vorherrschende Windrichtung.',
         empfehlung: 'Die vorherrschende Richtung zeigt, aus welcher Ecke an diesem Standort am ehesten mit Kaltluftzufuhr zu rechnen ist.'
     },
-    'Rain Gauge': {
-        bezeichnung: 'Niederschlag',
-        einheit: 'mm',
-        icon: 'water',
-        farbe: '#0284c7',
-        diagrammTyp: 'bar',
-        nachkommastellen: 1,
-        umrechnen: (wert) => wert,
-        tag: 'Wetterereignisse',
-        titel: 'Niederschlag',
-        kurzbeschreibung: 'Von der Regenwippe des Sensors erfasste Niederschlagsmenge.',
-        interpretation: 'Kurze, hohe Ausschläge deuten auf Starkregen hin. Auf versiegelten Flächen kann Regenwasser dann nicht schnell genug versickern.',
-        empfehlung: 'Bei erkennbaren Starkregenspitzen tiefliegende Bereiche und Unterführungen in der Nähe meiden.'
-    },
-    'Barometric Pressure': {
+      'Barometric Pressure': {
         bezeichnung: 'Luftdruck',
         einheit: 'hPa',
         icon: 'speed',
@@ -142,6 +128,16 @@ function ermittleMessfeldInfo(feldName) {
 // Technische Felder: nie als eigenes Diagramm darstellen.
 const TECHNISCHE_FELDER = ['_id', 'time', 'dev_eui', 'geo_point'];
 
+// Messwerte, die komplett aus der Seite ausgeblendet werden sollen (Schlüsselwort,
+// unabhängig von Groß-/Kleinschreibung) - werden schon beim Normalisieren verworfen,
+// tauchen also nirgends auf (Karte, Popup, Diagramme, Ø-Werte).
+const AUSGEBLENDETE_FELDER_SCHLUESSELWOERTER = ['rain'];
+
+function istAusgeblendetesFeld(rohName) {
+    const schluessel = rohName.toLowerCase();
+    return AUSGEBLENDETE_FELDER_SCHLUESSELWOERTER.some(wort => schluessel.includes(wort));
+}
+
 // Rohen Sensor-Feldnamen auf den kanonischen Namen bringen. Stationen nennen
 // Felder unterschiedlich und ändern das auch mal (z. B. "Wind Direction Sensor",
 // "Wind Direction", "Wind direction") - Schlüsselwort-Suche statt fester Liste
@@ -155,7 +151,6 @@ function ermittleKanonischenFeldnamen(rohName) {
     if (schluessel.includes('uv')) return 'UV Index';
     if (schluessel.includes('wind') && schluessel.includes('speed')) return 'Wind Speed';
     if (schluessel.includes('wind')) return 'Wind Direction Sensor';
-    if (schluessel.includes('rain')) return 'Rain Gauge';
     if (schluessel.includes('pressure')) return 'Barometric Pressure';
 
     return rohName; // unbekanntes Feld: unverändert lassen, siehe ermittleMessfeldInfo()
@@ -167,6 +162,8 @@ function ermittleKanonischenFeldnamen(rohName) {
 function normalisiereDatensatz(datensatz) {
     const ergebnis = {};
     for (const rohName of Object.keys(datensatz)) {
+        if (!TECHNISCHE_FELDER.includes(rohName) && istAusgeblendetesFeld(rohName)) continue;
+
         const kanonischerName = TECHNISCHE_FELDER.includes(rohName) ? rohName : ermittleKanonischenFeldnamen(rohName);
         let wert = datensatz[rohName];
 
@@ -186,6 +183,8 @@ function normalisiereFelderliste(felder) {
     const bereitsErfasst = new Set();
     const ergebnis = [];
     felder.forEach(feld => {
+        if (!TECHNISCHE_FELDER.includes(feld.id) && istAusgeblendetesFeld(feld.id)) return;
+
         const kanonischerName = TECHNISCHE_FELDER.includes(feld.id) ? feld.id : ermittleKanonischenFeldnamen(feld.id);
         if (bereitsErfasst.has(kanonischerName)) return;
         bereitsErfasst.add(kanonischerName);
@@ -245,14 +244,6 @@ const KARTEN_METRIKEN = {
         min: 0, max: 11,
         farbverlauf: { 0.1: '#fef08a', 0.4: '#eab308', 0.7: '#d97706', 0.9: '#92400e', 1.0: '#451a03' },
         skalenBeschriftung: ['0', '6', '11+']
-    },
-    rain: {
-        feld: 'Rain Gauge',
-        legendentitel: 'Niederschlag (mm)',
-        erklaerung: 'Zeigt die aktuell gemessene Niederschlagsmenge als Farbverlauf auf der Karte.',
-        min: 0, max: 12,
-        farbverlauf: { 0.1: '#e0f2fe', 0.4: '#7dd3fc', 0.7: '#0284c7', 0.9: '#1e3a8a', 1.0: '#0f172a' },
-        skalenBeschriftung: ['0', '5', '10+']
     },
     pressure: {
         feld: 'Barometric Pressure', // liegt dank normalisiereDatensatz() schon in hPa vor

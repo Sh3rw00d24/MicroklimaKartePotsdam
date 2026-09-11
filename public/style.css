@@ -90,6 +90,7 @@ body { font-family: var(--font-text); color: var(--text-main); background: #fff;
 .custom-select { width: 100%; padding: 12px 15px; border: 1px solid var(--border-color); font-family: var(--font-text); font-weight: 600; font-size: 14px; color: var(--brand-dark); background: var(--bg-light); cursor: pointer; outline: none; transition: border-color 0.15s; }
 .custom-select:focus { border-color: var(--brand-dark); }
 .feld-hinweis { font-size: 12.5px; color: #64748b; margin-top: 8px; line-height: 1.5; }
+#verlauf-spanne { font-weight: 600; color: var(--brand-dark); }
 
 .live-punkt { width: 8px; height: 8px; border-radius: 50%; background: #10b981; flex-shrink: 0; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); animation: livePuls 2s infinite; }
 .live-punkt.getrennt { background: #cbd5e1; animation: none; box-shadow: none; }

@@ -8,8 +8,8 @@ if (window.L && L.HeatLayer && L.HeatLayer.prototype._redraw) {
     L.HeatLayer.prototype._redraw = function (...args) {
         try {
             return urspruenglichesRedraw.apply(this, args);
-        } catch (fehler) {
-            console.warn('Wärmekarte: Zeichenvorgang übersprungen.', fehler);
+        } catch (error) {
+            console.warn('Wärmekarte: Zeichenvorgang übersprungen.', error);
         }
     };
 }
@@ -75,8 +75,8 @@ function initialisiereKarte() {
 
     try {
         hitzeKarte = L.heatLayer([], { radius: 70, blur: 50, maxZoom: 13, maxOpacity: 0.4 }).addTo(karte);
-    } catch (fehler) {
-        console.warn('Wärmekarte konnte nicht sofort initialisiert werden:', fehler);
+    } catch (error) {
+        console.warn('Wärmekarte konnte nicht sofort initialisiert werden:', error);
         hitzeKarte = L.heatLayer([], { radius: 70, blur: 50, maxZoom: 13, maxOpacity: 0.4 });
     }
     windPfeilEbene = L.layerGroup().addTo(karte);
@@ -666,6 +666,7 @@ function zeigeStandortImDashboard(standort) {
     if (!standort.resourceId) {
         document.getElementById('dash-desc').innerText =
             'Für diesen Standort ist noch kein Sensor an die Datenplattform angebunden. Sobald Messdaten verfügbar sind, erscheint hier automatisch für jeden gesendeten Wert ein eigenes Diagramm.';
+        document.getElementById('verlauf-spanne').innerText = '';
         loescheAlleDiagramme();
         document.getElementById('dashboard-tiles').innerHTML = erzeugeGlossarKarteHtml();
         return;
@@ -732,6 +733,7 @@ async function ladeUndZeigeVerlauf(standort) {
         : zwischengespeichert.messwerte;
 
     const chronologisch = [...gefiltert].reverse(); // CKAN liefert neueste zuerst, Diagramme brauchen chronologisch
+    zeigeVerlaufsSpanne(chronologisch);
 
     const felderMitDaten = zwischengespeichert.felder.filter(feldName =>
         chronologisch.some(datensatz => datensatz[feldName] !== null && datensatz[feldName] !== undefined)
@@ -740,6 +742,24 @@ async function ladeUndZeigeVerlauf(standort) {
     erzeugeDiagrammKarten(felderMitDaten);
     aktualisiereAktuelleWerteImDashboard(standort);
     zeichneDiagramme(felderMitDaten, chronologisch);
+}
+
+// Zeigt an, wie viele Messungen im gewählten Zeitraum stecken und von wann bis
+// wann sie reichen - macht sichtbar, wenn "Gesamter Zeitraum" schlicht noch
+// nicht viel mehr hergibt als 24 Stunden, weil der Sensor erst kurz läuft.
+function zeigeVerlaufsSpanne(chronologischeDaten) {
+    const element = document.getElementById('verlauf-spanne');
+    if (!element) return;
+
+    if (chronologischeDaten.length === 0) {
+        element.innerText = 'Keine Messungen im gewählten Zeitraum.';
+        return;
+    }
+
+    const anzahl = chronologischeDaten.length;
+    const von = formatiereZeitpunkt(chronologischeDaten[0].time);
+    const bis = formatiereZeitpunkt(chronologischeDaten[anzahl - 1].time);
+    element.innerText = `${anzahl} Messungen, von ${von} bis ${bis}.`;
 }
 
 // Zeigt einen Lade-Hinweis, während die Historie vom Server kommt.
@@ -820,6 +840,27 @@ function zeichneDiagramme(felder, chronologischeDaten) {
 }
 
 // Linien-/Balkendiagramm mit Zoom/Pan für einen Messwert über die Zeit.
+// Einheitliches Tooltip-Aussehen für alle Diagramme (dunkle Karte statt Chart.js-Standard-Weiß).
+const DIAGRAMM_TOOLTIP_STIL = {
+    backgroundColor: '#211c3d',
+    titleFont: { family: "'Titillium Web', sans-serif", weight: '700', size: 13 },
+    bodyFont: { family: "'Titillium Web', sans-serif", size: 12 },
+    padding: 10,
+    cornerRadius: 4,
+    displayColors: false
+};
+
+// Sanfter Verlauf von der Linienfarbe zu transparent - deckungsgleiche Alternative
+// zur früheren flachen Füllfarbe, wirkt weniger nach Tabellenkalkulation.
+function erzeugeVerlaufsFuellung(context, hexFarbe) {
+    const { ctx, chartArea } = context.chart;
+    if (!chartArea) return hexZuRgba(hexFarbe, 0.15);
+    const verlauf = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    verlauf.addColorStop(0, hexZuRgba(hexFarbe, 0.3));
+    verlauf.addColorStop(1, hexZuRgba(hexFarbe, 0.02));
+    return verlauf;
+}
+
 function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten) {
     const info = ermittleMessfeldInfo(feldName);
     const werte = chronologischeDaten.map(datensatz => {
@@ -827,40 +868,66 @@ function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten)
         return (rohwert === null || rohwert === undefined) ? null : info.umrechnen(rohwert);
     });
 
-    // Viele Punkte (z. B. "Gesamter Zeitraum"): keine Punktmarker, keine Animation - sonst lahmt das Rendern.
+    // Viele Punkte (z. B. "Gesamter Zeitraum"): keine Animation - sonst lahmt das Rendern.
     const vieleDatenpunkte = werte.length > 300;
+    const istBalken = info.diagrammTyp === 'bar';
 
     return new Chart(canvas.getContext('2d'), {
         type: info.diagrammTyp,
         data: {
             labels: beschriftungen,
             datasets: [{
-                label: `${info.bezeichnung}${info.einheit ? ' (' + info.einheit + ')' : ''}`,
                 data: werte,
                 borderColor: info.farbe,
-                backgroundColor: info.diagrammTyp === 'bar' ? info.farbe : hexZuRgba(info.farbe, 0.12),
-                fill: info.diagrammTyp === 'line',
-                tension: 0.35,
+                backgroundColor: istBalken ? info.farbe : (context) => erzeugeVerlaufsFuellung(context, info.farbe),
+                // 'start' füllt bis zum unteren Rand der festen Skala, nicht bis zur Null-Linie -
+                // bei z. B. -10 bis 40°C wäre eine Füllung bis 0°C sonst ein irreführend großer Klecks.
+                fill: istBalken ? false : 'start',
+                borderRadius: istBalken ? 4 : 0,
+                cubicInterpolationMode: 'monotone',
                 spanGaps: true, // Lücken unterbrechen die Linie nicht
-                pointRadius: vieleDatenpunkte ? 0 : 3,
-                pointHoverRadius: 5,
-                borderWidth: vieleDatenpunkte ? 1.5 : 2
+                // Durchgehende Linie statt Punktkette: Punkte bleiben unsichtbar, außer beim Hovern.
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                pointHoverBackgroundColor: info.farbe,
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 1.5,
+                borderWidth: vieleDatenpunkte ? 1.5 : 2.5
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: vieleDatenpunkte ? false : undefined,
+            animation: vieleDatenpunkte ? false : { duration: 400 },
             interaction: { mode: 'nearest', axis: 'x', intersect: false },
             plugins: {
-                legend: { position: 'bottom' },
+                legend: { display: false }, // Kartentitel sagt schon, was gezeigt wird - Legende wäre doppelt
+                tooltip: {
+                    ...DIAGRAMM_TOOLTIP_STIL,
+                    callbacks: {
+                        label: (context) => `${context.formattedValue}${info.einheit ? ' ' + info.einheit : ''}`
+                    }
+                },
                 zoom: {
                     pan: { enabled: true, mode: 'x' },
                     zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' },
                     limits: { x: { minRange: 4 } }
                 }
             },
-            scales: { x: { ticks: { maxTicksLimit: 8 } } }
+            scales: {
+                x: {
+                    ticks: { maxTicksLimit: 6, color: '#94a3b8', font: { size: 11 } },
+                    grid: { display: false }
+                },
+                y: {
+                    // Feste, realistische Skala statt automatischer Anpassung an die Datenspanne -
+                    // sonst wirkt eine kleine Schwankung optisch wie ein dramatischer Ausschlag.
+                    min: info.achseMin,
+                    max: info.achseMax,
+                    ticks: { color: '#94a3b8', font: { size: 11 } },
+                    grid: { color: '#f1f5f9' }
+                }
+            }
         }
     });
 }
@@ -895,6 +962,7 @@ function zeichneWindrose(canvas, chronologischeDaten) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    ...DIAGRAMM_TOOLTIP_STIL,
                     callbacks: {
                         label: (context) => {
                             const anteil = gesamtAnzahl ? Math.round((context.raw / gesamtAnzahl) * 100) : 0;

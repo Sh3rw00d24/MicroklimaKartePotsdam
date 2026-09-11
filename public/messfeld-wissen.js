@@ -2,6 +2,10 @@
 // Erklärtexte für "Mehr erfahren". Key = kanonischer Feldname (siehe unten).
 // Wind: Sensor liefert m/s, Anzeige in km/h (× 3,6). Luftdruck: Pa -> hPa
 // passiert schon in normalisiereDatensatz(), hier also bereits hPa.
+//
+// achseMin/achseMax: feste Y-Achse im Diagramm, an den realistischen Wertebereich
+// dieser Messgröße angelehnt (kein automatisches Zoomen auf die Datenspanne - eine
+// kleine Schwankung soll nicht wie ein dramatischer Ausschlag aussehen).
 
 const MESSFELD_INFO = {
     'Air Temperature': {
@@ -12,6 +16,7 @@ const MESSFELD_INFO = {
         diagrammTyp: 'line',
         nachkommastellen: 1,
         umrechnen: (wert) => wert,
+        achseMin: -10, achseMax: 40,
         tag: 'Thermische Belastung',
         titel: 'Temperaturverlauf',
         kurzbeschreibung: 'Lufttemperatur, gemessen direkt am Sensorstandort.',
@@ -26,6 +31,7 @@ const MESSFELD_INFO = {
         diagrammTyp: 'line',
         nachkommastellen: 0,
         umrechnen: (wert) => wert,
+        achseMin: 0, achseMax: 100,
         tag: 'Mikroklima',
         titel: 'Luftfeuchtigkeit',
         kurzbeschreibung: 'Relativer Wasserdampfgehalt der Luft.',
@@ -40,6 +46,7 @@ const MESSFELD_INFO = {
         diagrammTyp: 'line',
         nachkommastellen: 1,
         umrechnen: (wertInMeterProSekunde) => wertInMeterProSekunde * 3.6,
+        achseMin: 0, achseMax: 50,
         tag: 'Luftaustausch',
         titel: 'Windgeschwindigkeit',
         kurzbeschreibung: 'Geschwindigkeit der Luftbewegung – wichtig für den Abtransport von Wärme und Schadstoffen.',
@@ -60,7 +67,7 @@ const MESSFELD_INFO = {
         interpretation: 'Jeder Balken steht für eine Himmelsrichtung, seine Länge für die Häufigkeit. Sticht eine Richtung deutlich heraus, war das im gewählten Zeitraum die vorherrschende Windrichtung.',
         empfehlung: 'Die vorherrschende Richtung zeigt, aus welcher Ecke an diesem Standort am ehesten mit Kaltluftzufuhr zu rechnen ist.'
     },
-      'Barometric Pressure': {
+    'Barometric Pressure': {
         bezeichnung: 'Luftdruck',
         einheit: 'hPa',
         icon: 'speed',
@@ -68,6 +75,7 @@ const MESSFELD_INFO = {
         diagrammTyp: 'line',
         nachkommastellen: 1,
         umrechnen: (wert) => wert, // liegt dank normalisiereDatensatz() schon in hPa vor
+        achseMin: 970, achseMax: 1050,
         tag: 'Wetterlage',
         titel: 'Luftdruckverlauf',
         kurzbeschreibung: 'Luftdruck auf Stationshöhe – ein klassischer Hinweis auf die kommende Wetterentwicklung.',
@@ -82,6 +90,7 @@ const MESSFELD_INFO = {
         diagrammTyp: 'line',
         nachkommastellen: 0,
         umrechnen: (wert) => wert,
+        achseMin: 0, achseMax: 100000,
         tag: 'Strahlung',
         titel: 'Lichtintensität',
         kurzbeschreibung: 'Gemessene Helligkeit in Lux – steigt bei direkter Sonneneinstrahlung stark an.',
@@ -93,9 +102,10 @@ const MESSFELD_INFO = {
         einheit: '',
         icon: 'wb_sunny',
         farbe: '#eab308',
-        diagrammTyp: 'bar',
+        diagrammTyp: 'line', // vorher 'bar' - als einziger Balken zwischen lauter Linien wirkte es willkürlich
         nachkommastellen: 1,
         umrechnen: (wert) => wert,
+        achseMin: 0, achseMax: 12,
         tag: 'Strahlung',
         titel: 'UV-Index',
         kurzbeschreibung: 'Wissenschaftlicher Indikator für die Intensität der sonnenbrandwirksamen UV-Strahlung, Skala 0 bis 11+.',

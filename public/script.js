@@ -1,19 +1,6 @@
 // Kartenlogik, Datenabruf und Diagramme für Stadtpuls Potsdam.
 // Daten kommen live über server.js von der Urbanen Datenplattform Potsdam.
 
-// Patch: leaflet.heat wirft beim Neuzeichnen gelegentlich einen harmlosen
-// IndexSizeError. Hier abgefangen, damit das nie die ganze Seite blockiert.
-if (window.L && L.HeatLayer && L.HeatLayer.prototype._redraw) {
-    const urspruenglichesRedraw = L.HeatLayer.prototype._redraw;
-    L.HeatLayer.prototype._redraw = function (...args) {
-        try {
-            return urspruenglichesRedraw.apply(this, args);
-        } catch (error) {
-            console.warn('Wärmekarte: Zeichenvorgang übersprungen.', error);
-        }
-    };
-}
-
 const HITZEWARNUNG_SCHWELLE_GRAD = 34;
 const AUTOMATISCHE_AKTUALISIERUNG_MS = 5 * 60 * 1000;
 const ANZAHL_FUER_AKTUELLEN_WERT = 20; // Puffer, um leere Datensätze überspringen zu können
@@ -30,7 +17,7 @@ const ZEITRAUM_IN_MILLISEKUNDEN = {
 const HIMMELSRICHTUNGEN = ['N', 'NNO', 'NO', 'ONO', 'O', 'OSO', 'SO', 'SSO', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 
 let karte;
-let hitzeKarte;
+let interpolationsCanvas; // eigene Ebene für den Wetterkarten-Farbverlauf, siehe initialisiereWetterInterpolation()
 let windPfeilEbene;
 let markerNachStandortId = {};
 let aktuelleWerteNachStandortId = {};
@@ -72,13 +59,7 @@ function initialisiereKarte() {
     }).addTo(karte);
 
     initialisiereScrollZoom();
-
-    try {
-        hitzeKarte = L.heatLayer([], { radius: 70, blur: 50, maxZoom: 13, maxOpacity: 0.4 }).addTo(karte);
-    } catch (error) {
-        console.warn('Wärmekarte konnte nicht sofort initialisiert werden:', error);
-        hitzeKarte = L.heatLayer([], { radius: 70, blur: 50, maxZoom: 13, maxOpacity: 0.4 });
-    }
+    initialisiereWetterInterpolation();
     windPfeilEbene = L.layerGroup().addTo(karte);
 
     karte.on('zoom', aktualisiereWindpfeilGroesse);
@@ -87,6 +68,131 @@ function initialisiereKarte() {
     // Größe erst beim ersten Rendern oft falsch (Stylesheet noch nicht fertig) - neu vermessen.
     window.addEventListener('load', () => karte.invalidateSize());
     setTimeout(() => karte.invalidateSize(), 200);
+}
+
+// --- Wetterkarten-Farbverlauf ---
+//
+// Statt jeden Sensor als isolierten "Fleck" zu zeigen (wie eine klassische
+// Dichte-Heatmap), wird hier für jeden Punkt auf der Karte ein Wert aus allen
+// nahen Sensoren gewichtet gemittelt (Inverse-Distance-Weighting, das Standard-
+// Verfahren für echte Wetterkarten) - Standorte zwischen zwei Sensoren zeigen so
+// einen sinnvollen Übergangswert statt einer Lücke oder eines harten Randes.
+
+// Eigenes <canvas> statt Leaflet-Layer, liegt in Leaflets overlayPane (zwischen
+// Kacheln und Markern) und wird von Leaflet beim Verschieben automatisch mitbewegt.
+function initialisiereWetterInterpolation() {
+    interpolationsCanvas = L.DomUtil.create('canvas', 'wetter-interpolation', karte.getPane('overlayPane'));
+    interpolationsCanvas.style.pointerEvents = 'none'; // Klicks müssen zu Markern/Karte durchgehen
+
+    karte.on('moveend zoomend resize', positioniereUndZeichneInterpolation);
+    positioniereUndZeichneInterpolation();
+}
+
+// Größe/Position an den aktuellen Kartenausschnitt anpassen, dann neu einfärben.
+function positioniereUndZeichneInterpolation() {
+    const groesse = karte.getSize();
+    L.DomUtil.setPosition(interpolationsCanvas, karte.containerPointToLayerPoint([0, 0]));
+    interpolationsCanvas.width = groesse.x;
+    interpolationsCanvas.height = groesse.y;
+    zeichneWetterInterpolation();
+}
+
+// Malt den Farbverlauf für die aktuell gewählte Metrik neu (grobes Raster aus
+// Performance-Gründen - bei jeder Kartenbewegung oder jedem Datenupdate genug).
+function zeichneWetterInterpolation() {
+    const ctx = interpolationsCanvas.getContext('2d');
+    const breite = interpolationsCanvas.width;
+    const hoehe = interpolationsCanvas.height;
+    ctx.clearRect(0, 0, breite, hoehe);
+    if (breite === 0 || hoehe === 0) return;
+
+    const metrik = KARTEN_METRIKEN[document.getElementById('metric-select').value];
+    if (!metrik || metrik.nurPfeileKeineWaermekarte) return; // Windrichtung: nur Pfeile, keine Fläche
+
+    // Dieselbe Wertespanne wie im Diagramm (achseMin/achseMax) - siehe Kommentar bei KARTEN_METRIKEN.
+    const feldInfo = ermittleMessfeldInfo(metrik.feld);
+
+    const canvasUrsprung = karte.containerPointToLayerPoint([0, 0]);
+    const punkte = STANDORTE.map(standort => {
+        const rohwert = leseAktuellenRohwert(standort, metrik.feld);
+        if (rohwert === null) return null;
+        const pixel = karte.latLngToLayerPoint([standort.lat, standort.lng]);
+        return { x: pixel.x - canvasUrsprung.x, y: pixel.y - canvasUrsprung.y, wert: feldInfo.umrechnen(rohwert) };
+    }).filter(Boolean);
+
+    if (punkte.length === 0) return;
+
+    const RASTER_PX = 14; // Zellengröße - grob genug fürs Tempo, fein genug für weiche Übergänge
+    const REICHWEITE_PX = berechneReichweite(punkte); // Fläche pro Sensor an echten Abständen ausgerichtet, nicht fest
+
+    for (let y = 0; y < hoehe; y += RASTER_PX) {
+        for (let x = 0; x < breite; x += RASTER_PX) {
+            let gewichtsSumme = 0;
+            let wertSumme = 0;
+            let naehesterAbstand = Infinity;
+
+            for (const punkt of punkte) {
+                const abstand = Math.hypot(x - punkt.x, y - punkt.y);
+                if (abstand < naehesterAbstand) naehesterAbstand = abstand;
+                // Potenz 3 statt 2: nahe am eigenen Sensor bleibt dessen Farbe klar erkennbar,
+                // erst näher an der Mitte zum Nachbarn setzt der Übergang spürbar ein.
+                const gewicht = 1 / Math.pow(Math.max(abstand, 1), 3);
+                gewichtsSumme += gewicht;
+                wertSumme += gewicht * punkt.wert;
+            }
+
+            if (naehesterAbstand > REICHWEITE_PX) continue; // zu weit von jedem Sensor weg
+
+            const interpoliert = wertSumme / gewichtsSumme;
+            const intensitaet = Math.max(0, Math.min(1, (interpoliert - feldInfo.achseMin) / (feldInfo.achseMax - feldInfo.achseMin)));
+            const farbe = farbeAusVerlauf(metrik.farbverlauf, intensitaet);
+            const deckkraft = 0.6 * (1 - naehesterAbstand / REICHWEITE_PX); // zum Rand hin ausblenden
+
+            ctx.fillStyle = `rgba(${farbe.r}, ${farbe.g}, ${farbe.b}, ${deckkraft.toFixed(2)})`;
+            ctx.fillRect(x, y, RASTER_PX, RASTER_PX);
+        }
+    }
+}
+
+// Wie weit sich ein Sensor sichtbar auf seine Umgebung auswirkt - richtet sich nach dem
+// Abstand zu seinen echten Nachbarn, nicht nach einer festen Pixelzahl. Ohne das würde
+// bei weit herausgezoomter Karte ein Sensor auch Gebiete weit entfernter Nachbarn
+// einfärben und alles zu einer einzigen, gemittelten Farbe verschmelzen.
+function berechneReichweite(punkte) {
+    if (punkte.length <= 1) return 260;
+
+    const nachbarAbstaende = punkte.map((punkt, i) => {
+        let kleinster = Infinity;
+        punkte.forEach((anderer, j) => {
+            if (i === j) return;
+            kleinster = Math.min(kleinster, Math.hypot(punkt.x - anderer.x, punkt.y - anderer.y));
+        });
+        return kleinster;
+    }).sort((a, b) => a - b);
+
+    const median = nachbarAbstaende[Math.floor(nachbarAbstaende.length / 2)];
+    return Math.max(120, Math.min(500, median * 0.9));
+}
+
+// Interpoliert zwischen den Farbverlauf-Stützstellen (z. B. { 0.1: '#...', 0.7: '#...' })
+// statt nur die nächstgelegene Stützstelle zu nehmen - dadurch entstehen weiche Farbübergänge.
+function farbeAusVerlauf(farbverlauf, intensitaet) {
+    const stopps = Object.keys(farbverlauf).map(Number).sort((a, b) => a - b);
+    const wert = Math.max(stopps[0], Math.min(stopps[stopps.length - 1], intensitaet));
+
+    for (let i = 0; i < stopps.length - 1; i++) {
+        const von = stopps[i], bis = stopps[i + 1];
+        if (wert < von || wert > bis) continue;
+        const anteil = bis === von ? 0 : (wert - von) / (bis - von);
+        const farbeVon = hexZuRgbZahlen(farbverlauf[von]);
+        const farbeBis = hexZuRgbZahlen(farbverlauf[bis]);
+        return {
+            r: Math.round(farbeVon.r + (farbeBis.r - farbeVon.r) * anteil),
+            g: Math.round(farbeVon.g + (farbeBis.g - farbeVon.g) * anteil),
+            b: Math.round(farbeVon.b + (farbeBis.b - farbeVon.b) * anteil)
+        };
+    }
+    return hexZuRgbZahlen(farbverlauf[stopps[stopps.length - 1]]);
 }
 
 // Legt für jeden Standort einen Marker mit Klick-Handler an.
@@ -288,8 +394,24 @@ function entfernungInKm(lat1, lng1, lat2, lng2) {
 function aktualisiereVerbindungsstatus(standorteMitSensor) {
     if (standorteMitSensor.length === 0) return;
 
-    const alleFehlgeschlagen = standorteMitSensor.every(s => aktuelleWerteNachStandortId[s.id]?.fehler);
+    const fehlermeldungen = standorteMitSensor
+        .map(s => aktuelleWerteNachStandortId[s.id]?.fehler)
+        .filter(Boolean);
+    const alleFehlgeschlagen = fehlermeldungen.length === standorteMitSensor.length;
+
     document.getElementById('verbindungshinweis').classList.toggle('hidden', !alleFehlgeschlagen);
+    if (alleFehlgeschlagen) {
+        // holeMesswerte() liefert zwei ganz verschiedene Fehlerursachen: entweder ist
+        // der eigene Server nicht erreichbar, oder er läuft, meldet aber, dass die
+        // Datenplattform selbst gerade nicht antwortet - das ist kein lokales Problem,
+        // ein Server-Neustart hilft in dem Fall nichts. Die Meldung soll das unterscheiden.
+        const istServerErreichbar = fehlermeldungen[0].includes('Datenplattform');
+        document.getElementById('verbindungshinweis-titel').innerText =
+            istServerErreichbar ? 'Datenplattform nicht erreichbar' : 'Kein eigener Server erreichbar';
+        document.getElementById('verbindungshinweis-text').innerText = istServerErreichbar
+            ? `Die Urbane Datenplattform Potsdam antwortet gerade nicht (${fehlermeldungen[0]}). Das liegt nicht an diesem Server - bitte in ein paar Minuten erneut versuchen.`
+            : 'Läuft der Server noch (npm start) und ist die Seite über http://localhost:3000 geöffnet - nicht als lokale Datei? Sobald die Verbindung wieder steht, füllt sich die Seite automatisch.';
+    }
 
     const livePunkt = document.querySelector('.live-punkt');
     if (livePunkt) livePunkt.classList.toggle('getrennt', alleFehlgeschlagen);
@@ -306,26 +428,7 @@ function aktualisiereKartenfarben() {
     if (erklaerung) erklaerung.innerText = metrik.erklaerung;
 
     windPfeilEbene.clearLayers();
-
-    try {
-        if (!karte.hasLayer(hitzeKarte)) hitzeKarte.addTo(karte);
-        if (metrik.nurPfeileKeineWaermekarte) {
-            hitzeKarte.setLatLngs([]);
-        } else {
-            const heatPunkte = [];
-            STANDORTE.forEach(standort => {
-                const rohwert = leseAktuellenRohwert(standort, metrik.feld);
-                if (rohwert === null) return;
-                const wert = metrik.umrechnen ? metrik.umrechnen(rohwert) : rohwert;
-                const intensitaet = Math.max(0, Math.min(1, (wert - metrik.min) / (metrik.max - metrik.min)));
-                heatPunkte.push([standort.lat, standort.lng, intensitaet]);
-            });
-            hitzeKarte.setLatLngs(heatPunkte);
-            hitzeKarte.setOptions({ gradient: metrik.farbverlauf });
-        }
-    } catch (fehler) {
-        console.warn('Wärmekarte konnte nicht neu gezeichnet werden:', fehler);
-    }
+    zeichneWetterInterpolation();
 
     if (ausgewaehlteMetrikId === 'wind' || ausgewaehlteMetrikId === 'wind_dir') {
         STANDORTE.forEach(standort => {
@@ -365,13 +468,28 @@ function aktualisiereWindpfeilGroesse() {
 // Aktualisiert Titel, Farbverlauf und Skalenbeschriftung der Kartenlegende.
 function aktualisiereLegende(metrik) {
     document.getElementById('legend-title').innerText = metrik.legendentitel;
+
+    // Windrichtung hat eine feste Beschriftung (Himmelsrichtungen); alle anderen
+    // Metriken bekommen ihre Beschriftung aus derselben Spanne wie das Diagramm.
+    const beschriftungen = metrik.nurPfeileKeineWaermekarte
+        ? metrik.skalenBeschriftung
+        : erzeugeSkalenBeschriftung(ermittleMessfeldInfo(metrik.feld));
     document.getElementById('legend-labels').innerHTML =
-        metrik.skalenBeschriftung.map(text => `<span>${text}</span>`).join('');
+        beschriftungen.map(text => `<span>${text}</span>`).join('');
 
     const balken = document.getElementById('legend-bar');
     balken.style.background = metrik.nurPfeileKeineWaermekarte
         ? 'linear-gradient(to right, #cbd5e1, #211c3d, #cbd5e1)'
         : `linear-gradient(to right, ${Object.values(metrik.farbverlauf).join(', ')})`;
+}
+
+// Drei Beschriftungen (Minimum, Mitte, Maximum+) aus der festen Achsen-Spanne
+// eines Messfelds - dieselben Zahlen, die auch die Diagramm-Achse begrenzen.
+function erzeugeSkalenBeschriftung(feldInfo) {
+    const mitte = Math.round((feldInfo.achseMin + feldInfo.achseMax) / 2);
+    const formatieren = (wert) => wert.toLocaleString('de-DE');
+    const maximum = feldInfo.hatFesteObergrenze ? formatieren(feldInfo.achseMax) : `${formatieren(feldInfo.achseMax)}+`;
+    return [formatieren(feldInfo.achseMin), formatieren(mitte), maximum];
 }
 
 // --- Hitzewarnungen ---
@@ -1029,7 +1147,12 @@ function formatiereZeitpunktFuerAchse(zeitpunktText) {
 }
 
 // Hex-Farbe -> rgba() mit gegebener Deckkraft.
-function hexZuRgba(hexFarbe, deckkraft) {
+function hexZuRgbZahlen(hexFarbe) {
     const zahl = parseInt(hexFarbe.slice(1), 16);
-    return `rgba(${(zahl >> 16) & 255}, ${(zahl >> 8) & 255}, ${zahl & 255}, ${deckkraft})`;
+    return { r: (zahl >> 16) & 255, g: (zahl >> 8) & 255, b: zahl & 255 };
+}
+
+function hexZuRgba(hexFarbe, deckkraft) {
+    const { r, g, b } = hexZuRgbZahlen(hexFarbe);
+    return `rgba(${r}, ${g}, ${b}, ${deckkraft})`;
 }

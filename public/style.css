@@ -57,6 +57,7 @@ body { font-family: var(--font-text); color: var(--text-main); background: #fff;
 
 .karten-buehne { position: relative; width: 100%; height: 82vh; min-height: 560px; max-height: 900px; }
 #map { height: 100%; width: 100%; z-index: 1; }
+.wetter-interpolation { position: absolute; top: 0; left: 0; }
 
 .scroll-zoom-hinweis {
     position: absolute;

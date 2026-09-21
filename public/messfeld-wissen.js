@@ -32,6 +32,7 @@ const MESSFELD_INFO = {
         nachkommastellen: 0,
         umrechnen: (wert) => wert,
         achseMin: 0, achseMax: 100,
+        hatFesteObergrenze: true, // 100 % ist eine echte Obergrenze, kein "100+" wie bei den anderen Skalen
         tag: 'Mikroklima',
         titel: 'Luftfeuchtigkeit',
         kurzbeschreibung: 'Relativer Wasserdampfgehalt der Luft.',
@@ -203,26 +204,25 @@ function normalisiereFelderliste(felder) {
     return ergebnis;
 }
 
-// Einstellungen für die Karten-Metrik-Auswahl: Sensor-Feld, Farbverlauf, und
-// min/max, auf die die Wärmekarte normiert wird (min = Intensität 0, max = Intensität 1).
+// Einstellungen für die Karten-Metrik-Auswahl: welches Sensor-Feld gemeint ist
+// und wie der Farbverlauf aussieht. Die Wertespanne (min/max) kommt bewusst NICHT
+// von hier, sondern von achseMin/achseMax oben bei MESSFELD_INFO - dieselbe Spanne,
+// die auch die Diagramm-Achse benutzt. Zwei getrennte Spannen für dieselbe Messgröße
+// hatten vorher dazu geführt, dass ein Wert auf der Karte ganz anders "hoch" aussah
+// als im Diagramm.
 const KARTEN_METRIKEN = {
     temp: {
         feld: 'Air Temperature',
         legendentitel: 'Temperatur (°C)',
         erklaerung: 'Zeigt die Temperatur an jedem Standort als Farbverlauf auf der Karte.',
-        min: 10, max: 40,
-        farbverlauf: { 0.1: '#3b82f6', 0.3: '#06b6d4', 0.6: '#eab308', 0.8: '#ef4444', 1.0: '#7f1d1d' },
-        skalenBeschriftung: ['10°C', '25°C', '40°C+']
+        farbverlauf: { 0.1: '#3b82f6', 0.3: '#06b6d4', 0.6: '#eab308', 0.8: '#ef4444', 1.0: '#7f1d1d' }
     },
     wind: {
         feld: 'Wind Speed',
-        // Umrechnung m/s -> km/h, damit die Skala zur Anzeige in den Diagrammen passt.
-        umrechnen: (wert) => wert * 3.6,
         legendentitel: 'Windgeschwindigkeit (km/h)',
         erklaerung: 'Zeigt die Windgeschwindigkeit als Farbverlauf und die Windrichtung als Pfeile auf der Karte.',
-        min: 0, max: 20,
-        farbverlauf: { 0.1: '#f1f5f9', 0.4: '#94a3b8', 0.7: '#475569', 0.9: '#1e293b', 1.0: '#020617' },
-        skalenBeschriftung: ['0', '10', '20+']
+        // Cyan -> Blau -> Violett statt Grau/Schwarz - wirkt nach Wind statt nach Schatten.
+        farbverlauf: { 0.1: '#ecfeff', 0.4: '#67e8f9', 0.7: '#38bdf8', 0.9: '#6366f1', 1.0: '#a21caf' }
     },
     wind_dir: {
         feld: 'Wind Direction Sensor',
@@ -235,32 +235,24 @@ const KARTEN_METRIKEN = {
         feld: 'Air Humidity',
         legendentitel: 'Luftfeuchtigkeit (%)',
         erklaerung: 'Zeigt die relative Luftfeuchtigkeit als Farbverlauf auf der Karte.',
-        min: 30, max: 100,
-        farbverlauf: { 0.1: '#dcfce7', 0.4: '#6ee7b7', 0.7: '#10b981', 0.9: '#047857', 1.0: '#022c22' },
-        skalenBeschriftung: ['30', '65', '100']
+        farbverlauf: { 0.1: '#dcfce7', 0.4: '#6ee7b7', 0.7: '#10b981', 0.9: '#047857', 1.0: '#022c22' }
     },
     sun_intensity: {
         feld: 'Light Intensity',
         legendentitel: 'Lichtintensität (lx)',
         erklaerung: 'Zeigt die gemessene Helligkeit als Farbverlauf auf der Karte – hilfreich, um sonnige von beschatteten Standorten zu unterscheiden.',
-        min: 0, max: 60000,
-        farbverlauf: { 0.1: '#fef9c3', 0.4: '#fde047', 0.7: '#f59e0b', 0.9: '#b45309', 1.0: '#451a03' },
-        skalenBeschriftung: ['0', '30.000', '60.000+']
+        farbverlauf: { 0.1: '#fef9c3', 0.4: '#fde047', 0.7: '#f59e0b', 0.9: '#b45309', 1.0: '#451a03' }
     },
     uv: {
         feld: 'UV Index',
         legendentitel: 'UV-Index',
         erklaerung: 'Zeigt den UV-Index als Farbverlauf auf der Karte.',
-        min: 0, max: 11,
-        farbverlauf: { 0.1: '#fef08a', 0.4: '#eab308', 0.7: '#d97706', 0.9: '#92400e', 1.0: '#451a03' },
-        skalenBeschriftung: ['0', '6', '11+']
+        farbverlauf: { 0.1: '#fef08a', 0.4: '#eab308', 0.7: '#d97706', 0.9: '#92400e', 1.0: '#451a03' }
     },
     pressure: {
-        feld: 'Barometric Pressure', // liegt dank normalisiereDatensatz() schon in hPa vor
+        feld: 'Barometric Pressure',
         legendentitel: 'Luftdruck (hPa)',
         erklaerung: 'Zeigt den Luftdruck als Farbverlauf auf der Karte.',
-        min: 990, max: 1040,
-        farbverlauf: { 0.1: '#e0e7ff', 0.4: '#a5b4fc', 0.7: '#6366f1', 0.9: '#4338ca', 1.0: '#1e1b4b' },
-        skalenBeschriftung: ['990', '1015', '1040+']
+        farbverlauf: { 0.1: '#e0e7ff', 0.4: '#a5b4fc', 0.7: '#6366f1', 0.9: '#4338ca', 1.0: '#1e1b4b' }
     }
 };

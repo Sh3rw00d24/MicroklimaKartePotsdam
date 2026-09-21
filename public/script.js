@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initialisierePopupVerhalten();
     verknuepfeSteuerelemente();
     aktualisiereAlleAktuellenWerte();
+    ladeDwdReferenzdaten();
     setInterval(aktualisiereAlleAktuellenWerte, AUTOMATISCHE_AKTUALISIERUNG_MS);
 });
 
@@ -857,7 +858,7 @@ async function ladeUndZeigeVerlauf(standort) {
         chronologisch.some(datensatz => datensatz[feldName] !== null && datensatz[feldName] !== undefined)
     );
 
-    erzeugeDiagrammKarten(felderMitDaten);
+    erzeugeDiagrammKarten(felderMitDaten, standort);
     aktualisiereAktuelleWerteImDashboard(standort);
     zeichneDiagramme(felderMitDaten, chronologisch);
 }
@@ -890,7 +891,7 @@ function zeigeLadePlatzhalter() {
 }
 
 // Baut pro Messwert eine Diagramm-Karte (HTML-Gerüst, Chart.js folgt in zeichneDiagramme).
-function erzeugeDiagrammKarten(felder) {
+function erzeugeDiagrammKarten(felder, standort) {
     loescheAlleDiagramme();
     const container = document.getElementById('dashboard-tiles');
 
@@ -926,12 +927,14 @@ function erzeugeDiagrammKarten(felder) {
                     ${istWindrose ? '' : `<button type="button" class="zoom-reset-btn" data-feld="${feldName}" title="Zoom zurücksetzen"><span class="material-icons-round">restart_alt</span></button>`}
                     <canvas id="chart-${domId}"></canvas>
                 </div>
+                ${erzeugeDwdVergleichsHtml(standort, feldName)}
                 <div class="chart-footer">
                     <a href="#" class="more-info-btn">Mehr erfahren <span class="material-icons-round">add_circle_outline</span></a>
                 </div>
                 <div class="more-info-content">
                     <p><strong>Interpretation:</strong> ${info.interpretation}</p>
                     <p style="margin-top: 8px;"><strong>Handlungsempfehlung:</strong> ${info.empfehlung}</p>
+                    ${erzeugeKlimawandelEinordnungHtml(standort, feldName)}
                 </div>
             </div>`;
     }).join('');
@@ -990,29 +993,50 @@ function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten)
     const vieleDatenpunkte = werte.length > 300;
     const istBalken = info.diagrammTyp === 'bar';
 
+    // DWD-Klimanormal als graue Vergleichslinie, zuerst im Array (= zuerst gezeichnet,
+    // liegt also hinter der echten Datenlinie) - nur für Felder mit DWD-Entsprechung.
+    const datasets = [];
+    const dwdVergleichsWerte = erzeugeDwdVergleichsDaten(feldName, chronologischeDaten);
+    if (dwdVergleichsWerte) {
+        datasets.push({
+            label: `DWD-Klimanormal (${dwdReferenzdaten.referenzzeitraum.vonJahr}–${dwdReferenzdaten.referenzzeitraum.bisJahr})`,
+            data: dwdVergleichsWerte,
+            borderColor: '#94a3b8',
+            backgroundColor: 'transparent',
+            borderWidth: 1.5,
+            borderDash: [5, 4],
+            fill: false,
+            spanGaps: true,
+            cubicInterpolationMode: 'monotone',
+            pointRadius: 0,
+            pointHitRadius: 6,
+            order: 2
+        });
+    }
+
+    datasets.push({
+        data: werte,
+        borderColor: info.farbe,
+        backgroundColor: istBalken ? info.farbe : (context) => erzeugeVerlaufsFuellung(context, info.farbe),
+        // 'start' füllt bis zum unteren Rand der festen Skala, nicht bis zur Null-Linie -
+        // bei z. B. -10 bis 40°C wäre eine Füllung bis 0°C sonst ein irreführend großer Klecks.
+        fill: istBalken ? false : 'start',
+        borderRadius: istBalken ? 4 : 0,
+        cubicInterpolationMode: 'monotone',
+        spanGaps: true, // Lücken unterbrechen die Linie nicht
+        // Durchgehende Linie statt Punktkette: Punkte bleiben unsichtbar, außer beim Hovern.
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: info.farbe,
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 1.5,
+        borderWidth: vieleDatenpunkte ? 1.5 : 2.5,
+        order: 1
+    });
+
     return new Chart(canvas.getContext('2d'), {
         type: info.diagrammTyp,
-        data: {
-            labels: beschriftungen,
-            datasets: [{
-                data: werte,
-                borderColor: info.farbe,
-                backgroundColor: istBalken ? info.farbe : (context) => erzeugeVerlaufsFuellung(context, info.farbe),
-                // 'start' füllt bis zum unteren Rand der festen Skala, nicht bis zur Null-Linie -
-                // bei z. B. -10 bis 40°C wäre eine Füllung bis 0°C sonst ein irreführend großer Klecks.
-                fill: istBalken ? false : 'start',
-                borderRadius: istBalken ? 4 : 0,
-                cubicInterpolationMode: 'monotone',
-                spanGaps: true, // Lücken unterbrechen die Linie nicht
-                // Durchgehende Linie statt Punktkette: Punkte bleiben unsichtbar, außer beim Hovern.
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                pointHoverBackgroundColor: info.farbe,
-                pointHoverBorderColor: '#fff',
-                pointHoverBorderWidth: 1.5,
-                borderWidth: vieleDatenpunkte ? 1.5 : 2.5
-            }]
-        },
+        data: { labels: beschriftungen, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -1023,7 +1047,10 @@ function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten)
                 tooltip: {
                     ...DIAGRAMM_TOOLTIP_STIL,
                     callbacks: {
-                        label: (context) => `${context.formattedValue}${info.einheit ? ' ' + info.einheit : ''}`
+                        label: (context) => {
+                            const praefix = context.dataset.label ? `${context.dataset.label}: ` : '';
+                            return `${praefix}${context.formattedValue}${info.einheit ? ' ' + info.einheit : ''}`;
+                        }
                     }
                 },
                 zoom: {
@@ -1116,6 +1143,10 @@ function erzeugeGlossarKarteHtml() {
                 <div class="g-item">
                     <h4>Kaltluftleitbahnen</h4>
                     <p>Vegetativ unversiegelte Korridore mit geringer Oberflächenrauigkeit (Flusstäler, breite Trassen), die den Transport von nächtlicher Kaltluft in aufgeheizte Stadtquartiere ermöglichen.</p>
+                </div>
+                <div class="g-item">
+                    <h4>Klimanormalperiode</h4>
+                    <p>International übliches Mehrjahres-Mittel, das definiert, was für eine Region und Jahreszeit "normal" ist. Diese Seite nutzt die letzten 20 vollständigen Jahre der DWD-Station Potsdam als Vergleichsbasis für die aktuellen Messwerte.</p>
                 </div>
             </div>
         </div>`;

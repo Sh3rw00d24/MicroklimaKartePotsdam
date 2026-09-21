@@ -9,6 +9,7 @@
 
 const express = require('express');
 const path = require('path');
+const { holeDwdReferenzdaten } = require('./dwd-klimadaten');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -70,6 +71,17 @@ app.get('/api/messwerte/:resourceId', async (req, res) => {
     }
 });
 
+// DWD-Referenzdaten für Potsdam (Klimanormal + Erwärmungstrend), siehe dwd-klimadaten.js.
+app.get('/api/dwd/referenz', async (req, res) => {
+    try {
+        res.json(await holeDwdReferenzdaten());
+    } catch (fehler) {
+        console.error('Fehler beim Laden der DWD-Referenzdaten:', fehler);
+        res.status(502).json({ erfolgreich: false, fehlermeldung: fehler.message || 'DWD-Referenzdaten konnten nicht geladen werden.' });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Stadtpuls Potsdam läuft auf http://localhost:${PORT}`);
+    holeDwdReferenzdaten().catch(fehler => console.warn('DWD-Referenzdaten (Hintergrund-Vorabladen) fehlgeschlagen:', fehler.message));
 });

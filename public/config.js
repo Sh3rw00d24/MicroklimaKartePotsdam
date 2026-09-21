@@ -48,18 +48,12 @@ const STANDORTE = [
         hinweis: 'Gemeldeter geo_point liegt rund 8 km entfernt (Nähe Stern/Kirchsteigfeld) - das ist das LoRaWAN-Gateway, nicht der Sensor, und wird daher ignoriert (siehe MAX_PLAUSIBLE_ABWEICHUNG_KM in script.js). Marker bleibt an dieser Koordinate.'
     },
     {
-        id: 'schule-am-schloss',
-        name: 'Schule am Schloss',
-        lat: 52.42036,
-        lng: 13.05113,
-        resourceId: null
-    },
-    {
         id: 'wassersportzentrum-hermannswerder',
         name: 'Wassersportzentrum Hermannswerder',
-        lat: 52.38531,
-        lng: 13.03952,
-        resourceId: null
+        lat: 52.38230,
+        lng: 13.03945,
+        resourceId: '7fda3495-ac56-4a9f-82be-603fd4aa3328',
+        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/46a9bdcb-d390-4570-9673-d774a0d79840/resource/7fda3495-ac56-4a9f-82be-603fd4aa3328'
     },
     {
         id: 'johann-boumann-platz',
@@ -84,6 +78,14 @@ const STANDORTE = [
         resourceId: null
     },
     {
+        id: 'hoffbauer-kita', 
+        name: 'Kita Hoffbauer "Regenbogenland"', 
+        lat: '52.38447',
+        lng: '13.13858',
+        resourceId: '02f2e3e6-7539-4c44-9d36-add2847e6c7b',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/3135b1fd-623b-4d3a-aca6-33dbce81cf98/resource/02f2e3e6-7539-4c44-9d36-add2847e6c7b' 
+    },
+    {
         id: 'wasserspielplatz-volkspark',
         name: 'Wasserspielplatz Volkspark',
         lat: 52.41816,
@@ -100,13 +102,6 @@ const STANDORTE = [
         datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/69ba82a7-d536-4e59-9ae4-75f329a40114/resource/b42e144b-f1c9-44aa-a366-25060423d627'
     },
     {
-        id: 'stiftung-schloesser-gaerten',
-        name: 'Stiftung preussische Schlösser und Gärten',
-        lat: 52.40037,
-        lng: 13.04465,
-        resourceId: null
-    },
-    {
         id: 'kita-sausewind',
         name: 'KiTa Sausewind',
         lat: 52.39470,
@@ -114,8 +109,8 @@ const STANDORTE = [
         resourceId: null
     },
     {
-        id: 'freie-schule-schlaatz',
-        name: 'Freie Schule Schlaatz',
+        id: 'familienzentrum-biesamkiez-kis',
+        name: 'Familienzentrum-Biesamkiez',
         lat: 52.37581,
         lng: 13.10069,
         resourceId: null
@@ -140,14 +135,6 @@ const STANDORTE = [
         lat: 52.39834,
         lng: 13.06499,
         resourceId: null
-    },
-    {
-        id: 'cornelius-gesamtschule',
-        name: 'Cornelius Gesamtschule',
-        lat: 52.40000,
-        lng: 13.05000,
-        resourceId: null,
-        hinweis: 'Konnte nicht eindeutig über OpenStreetMap gefunden werden. Koordinate ist ein Platzhalter auf der Potsdamer Innenstadt – bitte unbedingt korrigieren.'
     },
     {
         id: 'uni-campus-neues-palais',

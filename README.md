@@ -1,12 +1,13 @@
 # Stadtpuls Potsdam – Mikroklima-Dashboard
 
-Live-Dashboard für die Mikroklima-Messstationen (SenseCAP-Wetterstationen) der Stadt
-Potsdam. Zeigt aktuelle Messwerte auf einer Karte und den Verlauf jedes einzelnen
-Sensorwerts über einen wählbaren Zeitraum. Alle Werte kommen live von der
-[Urbanen Datenplattform Potsdam](https://ckan.urbanedatenplattform-potsdam.de) –
-es gibt keine simulierten oder erfundenen Daten mehr.
+Live-Dashboard für die Mikroklima-Messstationen (SenseCAP-Wetterstationen) der Stadt Potsdam.
+Zeigt aktuelle Messwerte auf einer interpolierten Wetterkarte, Verlaufsdiagramme pro Standort,
+einen Vergleich mit den 20-jährigen DWD-Klimadaten Potsdams sowie automatische Wetterwarnungen
+(Hitze, Wind, UV, Trockenheit). Alle Werte kommen live von der
+[Urbanen Datenplattform Potsdam](https://ckan.urbanedatenplattform-potsdam.de) – es gibt keine
+simulierten oder erfundenen Daten.
 
-## Starten
+## Schnellstart
 
 Voraussetzung: [Node.js](https://nodejs.org) Version 18 oder neuer.
 
@@ -17,108 +18,125 @@ npm start
 
 Danach im Browser öffnen: **http://localhost:3000**
 
-Wichtig: immer über diese Adresse öffnen, nicht die Datei `public/index.html` per
-Doppelklick starten. Als lokale Datei (`file://...`) fehlen dem Browser die
-Kartenkacheln und der Datenabruf funktioniert nicht – die Seite bleibt dann leer.
-Falls im Browser trotz laufendem Server keine Daten erscheinen, zeigt die Seite
-oben einen orangen Hinweis mit der wahrscheinlichen Ursache an.
+Immer über diese Adresse öffnen, nicht `public/index.html` per Doppelklick starten – als
+lokale Datei (`file://...`) fehlt dem Browser der Datenabruf, die Seite bleibt leer. Port
+per `PORT`-Umgebungsvariable änderbar (Default: 3000). Erscheinen trotz laufendem Server
+keine Daten, zeigt die Seite oben automatisch einen Hinweis mit der wahrscheinlichen Ursache
+(eigener Server down vs. Datenplattform down – wird unterschieden).
 
-## Warum gibt es einen Server, wenn das doch "nur" eine Webseite ist?
+## Warum ein eigener Server?
 
-Die Urbane Datenplattform Potsdam sendet keine CORS-Freigabe mit ihren Antworten
-mit. Ein Browser darf ihre Daten deshalb aus Sicherheitsgründen nicht direkt von
-einer eigenen Webseite aus abrufen (das wurde vor dem Bau dieses Projekts geprüft –
-es liegt nicht an einer falschen Anfrage). Der kleine Server in `server.js` holt die
-Daten deshalb im Hintergrund ab und reicht sie an die Seite im Browser weiter.
-Gleichzeitig liefert derselbe Server auch die Webseite selbst aus (alles im Ordner
-`public`). Es muss also nichts anderes gestartet werden als dieser eine Server.
+Die Urbane Datenplattform Potsdam sendet keine CORS-Freigabe – ein Browser darf ihre Daten
+deshalb nicht direkt von einer eigenen Webseite abrufen. `server.js` holt die Daten stattdessen
+im Hintergrund ab (Proxy) und liefert außerdem die Webseite selbst aus. Ein Prozess genügt.
 
-## Aufbau des Projekts
+## Projektstruktur
 
-```
-server.js                    Kleiner Server: liefert die Webseite aus und holt
-                              im Hintergrund die Sensordaten von CKAN.
-public/
-  index.html                 Grundgerüst der Seite (Karte, Seitenleiste, Dashboard).
-  style.css                  Gesamtes Erscheinungsbild.
-  config.js                  Liste aller 22 Standorte mit Name, Koordinaten und
-                              der CKAN-"resourceId" des zugehörigen Sensors.
-  messfeld-wissen.js         Für jeden möglichen Messwert (Temperatur, Wind, …):
-                              deutsche Bezeichnung, Einheit, Farbe, Icon sowie die
-                              Erklärtexte im "Mehr erfahren"-Bereich.
-  script.js                  Die eigentliche Logik: Karte aufbauen, Daten abrufen,
-                              Popups und Diagramme erzeugen.
-```
+| Datei | Zweck |
+|---|---|
+| `server.js` | Express-Server: liefert `public/` aus, proxied CKAN-Sensordaten (`/api/messwerte/:resourceId`) und DWD-Referenzdaten (`/api/dwd/referenz`). |
+| `dwd-klimadaten.js` | Lädt/parst die DWD-Klimadaten der Station Potsdam, berechnet Klimanormal + Erwärmungstrend, cached in `data/` (gitignored). |
+| `public/index.html` | Grundgerüst: Karte, Steuerung, Standortanalyse. |
+| `public/style.css` | Gesamtes Erscheinungsbild. |
+| `public/config.js` | Die 20 Standorte: Name, Koordinaten, CKAN-`resourceId` des Sensors. |
+| `public/messfeld-wissen.js` | Pro Messgröße: Bezeichnung, Einheit, Farbe, feste Diagrammachse, Erklärtexte. Normalisiert außerdem uneinheitliche Sensor-Feldnamen auf kanonische Namen. |
+| `public/wetterwarnungen.js` | Bewertet Hitze/Wind/UV/Trockenheit gegen reale meteorologische Schwellen (siehe unten). |
+| `public/dwd-vergleich.js` | DWD-Klimanormal-Vergleich: graue Vergleichslinie im Diagramm + Klimawandel-Einordnung im Text. |
+| `public/script.js` | Hauptlogik: Karte, Datenabruf, Popups, Diagramme, Warnungen zusammenführen. |
+| `public/dev-test.js` | **Nur lokal**, nicht in Git: Konsolen-Werkzeug zum Simulieren von Extremwerten (siehe unten). |
+
+## Datenfluss (Kurzfassung)
+
+CKAN (Rohdaten, uneinheitliche Feldnamen/Einheiten je Sensor)
+→ `server.js` (Proxy, CORS umgangen)
+→ `normalisiereDatensatz()` in `messfeld-wissen.js` (Feldnamen vereinheitlicht, Pa→hPa)
+→ `script.js` (Karte einfärben, Diagramme zeichnen, Warnungen auswerten)
 
 ## Einen neuen Sensor anschließen
 
-Das ist der Teil, der am häufigsten gebraucht wird, deshalb hier ausführlich:
+1. Auf der [Urbanen Datenplattform Potsdam](https://ckan.urbanedatenplattform-potsdam.de) beim
+   Dataset des Sensors die **resource_id** kopieren.
+2. In `public/config.js` beim betreffenden Standort `resourceId: null` durch die kopierte ID
+   ersetzen (oder einen neuen Standort-Eintrag anlegen).
+3. Seite neu laden. Diagramme, Kartenfarbe und Warnungen entstehen automatisch – auch für
+   bisher unbekannte Messfelder (mit generischer Standarddarstellung, siehe
+   `ermittleMessfeldInfo()`-Fallback in `messfeld-wissen.js`).
 
-1. Auf der [Urbanen Datenplattform Potsdam](https://ckan.urbanedatenplattform-potsdam.de)
-   das Dataset des neuen Sensors öffnen und dort bei der zugehörigen Ressource die
-   **resource_id** kopieren (findet sich z. B. im Download-Link oder im
-   Beispielcode der Plattform, dort steht sie im Feld `resource_id: '...'`).
-2. In `public/config.js` den Standort suchen (oder neu anlegen) und dort
-   `resourceId: null` durch `resourceId: 'die-kopierte-id'` ersetzen.
-3. Seite neu laden – der Standort läuft ab sofort mit echten Live-Daten, inklusive
-   automatisch erzeugter Diagramme für jeden Messwert, den dieser Sensor sendet.
+Keine weitere Code-Änderung nötig. **Aktueller Stand:** 9 von 20 Standorten senden Live-Daten
+(Rest: Platzhalter, gestrichelter Punkt auf der Karte).
 
-Es ist keine weitere Code-Änderung nötig. Auch neue, bisher unbekannte Messfelder
-funktionieren automatisch (mit einer einfachen Standard-Darstellung) – für eine
-schönere Darstellung kann in `public/messfeld-wissen.js` einfach ein neuer Eintrag
-mit demselben Feldnamen ergänzt werden, den der Sensor sendet.
+## Messwerte & Einheiten
 
-## Wichtiger Hinweis zum aktuellen Datenstand (Stand: 03.09.2026)
+| Sensor-Rohfeld (Beispiele) | Kanonischer Name | Anzeige-Einheit |
+|---|---|---|
+| "Air Temperature", "Temperature" | `Air Temperature` | °C |
+| "Air Humidity", "Humidity" | `Air Humidity` | % |
+| "Wind Speed" | `Wind Speed` | km/h (Sensor liefert m/s, × 3,6) |
+| "Wind Direction", "Wind Direction Sensor" | `Wind Direction Sensor` | Himmelsrichtung |
+| "Barometric Pressure", "Air pressure" | `Barometric Pressure` | hPa (Sensor liefert teils Pa, ÷ 100 bei Werten > 10000) |
+| "Light Intensity" | `Light Intensity` | lx |
+| "UV Index" | `UV Index` | Index 0–11+ |
 
-Von den 22 in `config.js` hinterlegten Standorten senden aktuell **4** bereits
-echte Live-Daten:
+Feldnamen werden per Schlüsselwort erkannt (`ermittleKanonischenFeldnamen()`), nicht per exakter
+Liste – neue Schreibweisen derselben Größe (andere Firmware-Version) funktionieren automatisch.
+Niederschlag wird grundsätzlich ausgeblendet (`AUSGEBLENDETE_FELDER_SCHLUESSELWOERTER`).
 
-- am Steubenplatz / Alter Markt (alle 8 Messwerte der Wetterstation)
-- Stadtbad Babelsberg (Temperatur, Luftfeuchtigkeit, UV-Index)
-- Stadtteil Krampnitz (Temperatur, Luftfeuchtigkeit, UV-Index)
-- Karl Liebknecht Station (Temperatur, Luftfeuchtigkeit, UV-Index)
+## DWD-Klimavergleich
 
-Die Zuordnung der drei zuletzt genannten Sensoren zu ihrem Standortnamen wurde
-anhand ihrer gemeldeten Koordinaten vorgenommen. Die übrigen 18 Standorte sind als
-Platzhalter angelegt (gestrichelter Punkt auf der Karte, Popup zeigt "Noch nicht
-angebunden") – deren Koordinaten stammen aus einer Adresssuche über OpenStreetMap
-und sollten bei Bedarf noch verglichen werden. Bei zwei Standorten
-(**Johann Boumann Platz**, **Cornelius Gesamtschule**) konnte keine eindeutige
-Adresse gefunden werden; das ist direkt als Kommentar in `config.js` vermerkt.
-Sobald für einen dieser Standorte eine echte resource_id vorliegt, einfach wie
-oben beschrieben eintragen.
+Quelle: [DWD Climate Data Center](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/),
+Station 03987 Potsdam (Telegrafenberg), Tageswerte seit 1893. `dwd-klimadaten.js` lädt diese
+Daten einmalig (Cache 30 Tage) und berechnet serverseitig:
 
-## Technische Details zu den Messwerten
+- **Klimanormal pro Kalendertag** (Temperatur, Luftfeuchte, Wind) – Mittel ± Standardabweichung
+  aus den letzten 20 vollständigen Jahren, geglättet über ein ±5-Tage-Fenster.
+- **Erwärmungstrend** – lineare Regression der Jahresmittel-Temperatur, gesamte Messreihe und
+  letzte 30 Jahre getrennt (macht eine Beschleunigung sichtbar statt sie zu verwässern).
 
-- **Windgeschwindigkeit**: Der Sensor liefert Meter pro Sekunde (m/s), das
-  Dashboard rechnet für die Anzeige in km/h um (× 3,6).
-- **Luftdruck**: Der Sensor liefert Pascal (Pa), das Dashboard rechnet für die
-  Anzeige in hPa um (÷ 100).
-- **Zeiträume in den Diagrammen**: 24 Stunden / 7 Tage / 30 Tage / gesamter
-  Zeitraum. Die Filterung geschieht direkt im Browser, nachdem die Messhistorie
-  einmal geladen wurde – ein Wechsel des Zeitraums braucht deshalb keine erneute
-  Abfrage bei der Datenplattform.
-- Fehlerhafte oder leere Messungen der Station (kommen gelegentlich vor) werden
-  als Lücke im Diagramm dargestellt statt als 0, damit sie nicht mit einem
-  echten Messwert verwechselt werden.
+Im Diagramm erscheint das Klimanormal als graue gestrichelte Linie hinter der echten Messkurve.
+Im Text vergleicht `berechneKlimaEinordnung()` den Ø-Sensorwert der letzten 24h mit dem
+Klimanormal des heutigen Tages (Tagesmittel gegen Tagesmittel, keine Tageszeit-Verzerrung) und
+ordnet die Abweichung per Standardabweichung ein. Luftdruck/UV/Licht bewusst ohne DWD-Vergleich
+(Luftdruck: Höhenunterschied Station↔Sensor unkorrigiert; UV: absolute, ortsunabhängige Skala).
 
-## Diagramme: zoomen und die Windrose
+## Wetterwarnungen
 
-In jedem Zeitreihen-Diagramm kann mit dem Mausrad gezoomt und bei gedrückter
-Maustaste der sichtbare Ausschnitt verschoben werden (auf dem Handy: mit zwei
-Fingern zoomen). Rechts oben im Diagramm erscheint beim Darüberfahren ein kleines
-Zurücksetzen-Symbol. Umgesetzt mit [chartjs-plugin-zoom](https://www.chartjs.org/chartjs-plugin-zoom/latest/).
+| Typ | Skala / Quelle | Schwelle |
+|---|---|---|
+| Hitze | eigene Schwelle | ab 34 °C, ab 38 °C zweite Stufe |
+| Wind | [Beaufort-Skala](https://de.wikipedia.org/wiki/Beaufortskala) (auf Mittelwind, keine Böen – Sensoren messen keine Böen) | Bft 0 = Windstille (Hinweis), ab Bft 6 (39 km/h) Warnung, Bft 9 Sturm, Bft 12 Orkan |
+| UV-Index | [WHO Global Solar UV Index](https://www.who.int/news-room/questions-and-answers/item/radiation-the-ultraviolet-(uv)-index) | ab 8 "Sehr hoch", ab 11 "Extrem" |
+| Trockenheit | eigene Schwelle, angelehnt an Kernfaktoren realer Waldbrand-Gefahrenindizes | <40 % Hinweis, <30 % Warnung, <30 % + ≥25 °C verschärfte Stufe |
 
-Die Windrichtung wird nicht als Linie, sondern als Windrose dargestellt: Für den
-gewählten Zeitraum wird gezählt, wie oft der Wind aus welcher der 16
-Himmelsrichtungen kam, und als Kreisdiagramm angezeigt. Das ist aussagekräftiger
-als eine Linie aus Gradzahlen, die bei jedem Sprung über Nord (0°/360°) einen
-irreführenden Ausschlag zeigen würde.
+Jede Warnung erscheint als Marker-Puls + Toast + Box in der Standortanalyse (mehrere gleichzeitig
+möglich) und bekommt, wo ein DWD-Vergleich sinnvoll ist, automatisch den saisonalen Kontext
+dazu. Zentrale Logik: `ermittleWarnungenFuerStandort()` in `wetterwarnungen.js`.
 
-## Das Dashboard dauerhaft betreiben
+## Diagramme
 
-Dieses Projekt liegt aktuell in einem temporären Arbeitsordner. Für einen
-dauerhaften Betrieb bitte den kompletten Ordner an einen festen Speicherort (den
-eigenen Rechner, einen kleinen Server oder einen Hosting-Anbieter, der Node.js
-unterstützt, z. B. Render oder Railway) verschieben. Der Startbefehl bleibt überall
-derselbe: `npm install` einmalig, danach `npm start`.
+Zeitreihen: Zoom per Mausrad, Verschieben bei gedrückter Maustaste, Zurücksetzen-Symbol oben
+rechts ([chartjs-plugin-zoom](https://www.chartjs.org/chartjs-plugin-zoom/latest/)). Feste
+Y-Achse pro Messgröße (realistischer Wertebereich statt Auto-Zoom auf die Datenspanne), wächst
+aber automatisch mit, falls ein echter Messwert die Spanne übersteigt – damit ein Extremwert nie
+am Rand abgeschnitten wird. Windrichtung wird als Windrose (Häufigkeit je Himmelsrichtung) statt
+als Linie dargestellt, da Gradzahlen beim Sprung über 0°/360° sonst einen falschen Ausschlag zeigen.
+
+## Dev-Test-Werkzeug (nur lokal)
+
+`public/dev-test.js` lädt ausschließlich auf `localhost`/`127.0.0.1` (Prüfung in `index.html`)
+und ist nicht in Git eingecheckt – existiert nie in einem Deployment. Stellt in der
+Browser-Konsole Funktionen bereit, die für einen Standort echte Extremwerte in die Messhistorie
+einspeisen und automatisch zurücksetzen:
+
+```js
+simuliereHitzewarnung(42, 120, standortId)        // Temperatur °C, Dauer s, Standort-ID (alle optional)
+simuliereWindwarnung(130, 120, standortId)        // km/h im Mittel
+simuliereUvWarnung(13, 120, standortId)           // UV-Index
+simuliereTrockenheitswarnung(15, 120, standortId) // % Luftfeuchte
+simuliereExtremwetter(120, standortId)            // alle vier gleichzeitig
+```
+
+## Dauerhafter Betrieb
+
+Ordner an einen festen Speicherort verschieben (eigener Rechner, kleiner Server oder
+Node.js-fähiger Hoster, z. B. Render/Railway). Startbefehl bleibt überall `npm install`
+einmalig, danach `npm start`.

@@ -194,5 +194,14 @@
     <script src="messfeld-wissen.js"></script>
     <script src="dwd-vergleich.js"></script>
     <script src="script.js"></script>
+    <script>
+        // Dev-Testhelfer (Hitzewarnung simulieren, siehe simuliereHitzewarnung() in der Konsole) -
+        // lädt nur lokal und ist nie Teil der echten, veröffentlichten Seite.
+        if (['localhost', '127.0.0.1'].includes(location.hostname)) {
+            const devScript = document.createElement('script');
+            devScript.src = 'dev-test.js';
+            document.head.appendChild(devScript);
+        }
+    </script>
 </body>
 </html>

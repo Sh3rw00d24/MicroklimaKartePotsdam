@@ -69,6 +69,11 @@ function initialisiereKarte() {
     // Größe erst beim ersten Rendern oft falsch (Stylesheet noch nicht fertig) - neu vermessen.
     window.addEventListener('load', () => karte.invalidateSize());
     setTimeout(() => karte.invalidateSize(), 200);
+
+    // Ohne das bleibt Leaflets interne Kachel-Größe nach einer Fenstergrößenänderung
+    // (z. B. Drehung des Handys) auf dem alten Stand - die Karte zeigt dann falsch
+    // zugeschnittene Kacheln statt sich an den neuen Ausschnitt anzupassen.
+    window.addEventListener('resize', () => karte.invalidateSize());
 }
 
 // --- Wetterkarten-Farbverlauf ---

@@ -58,8 +58,8 @@ const STANDORTE = [
     {
         id: 'johann-boumann-platz',
         name: 'Johann Boumann Platz',
-        lat: 52.39680,
-        lng: 13.06050,
+        lat: 52.41372,
+        lng: 13.03812,
         resourceId: null,
         hinweis: 'Konnte nicht über OpenStreetMap gefunden werden – Koordinate ist eine Schätzung (Nähe Nikolaikirche/Alter Markt). Bitte vor Inbetriebnahme prüfen.'
     },
@@ -67,21 +67,21 @@ const STANDORTE = [
         id: 'uni-campus-griebnitzsee',
         name: 'Uni Potsdam Campus Griebnitzsee',
         lat: 52.39332,
-        lng: 13.12816,
+        lng: 13.12912,
         resourceId: null
     },
     {
         id: 'uni-campus-golm',
         name: 'Uni Potsdam Campus Golm',
-        lat: 52.40844,
-        lng: 12.97620,
+        lat: 52.4081260,
+        lng: 12.9760662,
         resourceId: null
     },
     {
         id: 'hoffbauer-kita', 
         name: 'Kita Hoffbauer "Regenbogenland"', 
-        lat: '52.38447',
-        lng: '13.13858',
+        lat: 52.38447,
+        lng: 13.13858,
         resourceId: '02f2e3e6-7539-4c44-9d36-add2847e6c7b',
         datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/3135b1fd-623b-4d3a-aca6-33dbce81cf98/resource/02f2e3e6-7539-4c44-9d36-add2847e6c7b' 
     },
@@ -104,15 +104,15 @@ const STANDORTE = [
     {
         id: 'kita-sausewind',
         name: 'KiTa Sausewind',
-        lat: 52.39470,
-        lng: 13.07506,
+        lat: 52.39482,
+        lng: 13.07486,
         resourceId: null
     },
     {
         id: 'familienzentrum-biesamkiez-kis',
         name: 'Familienzentrum-Biesamkiez',
-        lat: 52.37581,
-        lng: 13.10069,
+        lat: 52.37577,
+        lng: 13.10028,
         resourceId: null
     },
     {
@@ -148,13 +148,6 @@ const STANDORTE = [
         name: 'von Steuben Gesamtschule, Kirchsteigfeld',
         lat: 52.36433,
         lng: 13.13742,
-        resourceId: null
-    },
-    {
-        id: 'wissenschaftspark-albert-einstein',
-        name: 'Wissenschaftspark Albert Einstein',
-        lat: 52.38279,
-        lng: 13.06620,
         resourceId: null
     }
 ];

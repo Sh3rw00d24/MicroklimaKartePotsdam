@@ -52,7 +52,7 @@
                 <div class="puls-kachel coral">
                     <span class="material-icons-round">warning_amber</span>
                     <span class="puls-zahl" id="widget-warnings">0</span>
-                    <span class="puls-label">Aktive Hitzewarnungen</span>
+                    <span class="puls-label">Aktive Wetterwarnungen</span>
                 </div>
                 <div class="puls-kachel dunkel">
                     <span class="material-icons-round">sensors</span>
@@ -134,12 +134,9 @@
                     Rohdaten auf der Urbanen Datenplattform Potsdam ansehen <span class="material-icons-round">north_east</span>
                 </a>
 
-                <div id="dash-warning-box" class="warning-box hidden">
-                    <span class="material-icons-round">error_outline</span>
-                    <div>
-                        <strong>Hitzewarnung</strong>
-                        <p id="dash-warning-text"></p>
-                    </div>
+                <div id="dash-warnungen-container">
+                    <!-- Wird durch script.js befüllt: eine Box pro aktiver Warnung/Hinweis
+                         (Hitze, Wind, UV, Trockenheit) - siehe wetterwarnungen.js. -->
                 </div>
             </div>
         </div>
@@ -192,6 +189,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="config.js"></script>
     <script src="messfeld-wissen.js"></script>
+    <script src="wetterwarnungen.js"></script>
     <script src="dwd-vergleich.js"></script>
     <script src="script.js"></script>
     <script>

@@ -23,7 +23,7 @@ let markerNachStandortId = {};
 let aktuelleWerteNachStandortId = {};
 let verlaufCacheNachStandortId = {};
 let diagrammInstanzenNachFeld = {};
-let aktiveHitzewarnungen = new Set();
+let aktiveWarnungenSchluessel = new Set(); // "standortId:warnungsTyp", z.B. "kepplerplatz:wind"
 
 let ausgewaehlterStandort = null;
 let offenerPopupStandortId = null;
@@ -446,7 +446,7 @@ function aktualisiereKartenfarben() {
 
     aktualisiereWindpfeilGroesse();
     aktualisiereLegende(metrik);
-    aktualisiereHitzewarnungen();
+    aktualisiereWetterwarnungen();
 }
 
 // Aktueller Rohwert eines Felds für einen Standort, oder null.
@@ -493,39 +493,47 @@ function erzeugeSkalenBeschriftung(feldInfo) {
     return [formatieren(feldInfo.achseMin), formatieren(mitte), maximum];
 }
 
-// --- Hitzewarnungen ---
+// --- Wetterwarnungen (Hitze, Wind, UV, Trockenheit - siehe wetterwarnungen.js) ---
 
-// Markiert Standorte über der Hitzeschwelle und zeigt bei neuen Fällen einen Toast.
-function aktualisiereHitzewarnungen() {
-    let anzahl = 0;
+// Wertet für jeden Standort alle vier Warnungstypen aus, pulst den Marker bei
+// mindestens einer echten Warnung (schweregrad >= 1; reine Hinweise wie Windstille
+// pulsen bewusst nicht), zeigt bei jeder NEUEN Warnung genau einen Toast und
+// zählt die betroffenen Standorte fürs Widget.
+function aktualisiereWetterwarnungen() {
+    let standorteMitWarnung = 0;
+    const bekannteTypen = ['hitze', 'wind', 'uv', 'trockenheit'];
 
     STANDORTE.forEach(standort => {
-        const temperatur = leseAktuellenRohwert(standort, 'Air Temperature');
+        const alle = ermittleWarnungenFuerStandort(standort); // Hinweise + Warnungen
+        const echteWarnungen = alle.filter(w => w.schweregrad >= 1);
+
         const markerElement = document.getElementById(`marker-${standort.id}`);
-        const istKritisch = typeof temperatur === 'number' && temperatur >= HITZEWARNUNG_SCHWELLE_GRAD;
+        if (markerElement) markerElement.classList.toggle('is-alert', echteWarnungen.length > 0);
+        if (echteWarnungen.length > 0) standorteMitWarnung++;
 
-        if (markerElement) markerElement.classList.toggle('is-alert', istKritisch);
+        bekannteTypen.forEach(typ => {
+            const schluessel = `${standort.id}:${typ}`;
+            const eintrag = alle.find(w => w.typ === typ);
+            const istAktiv = !!eintrag && eintrag.schweregrad >= 1;
 
-        if (istKritisch) {
-            anzahl++;
-            if (!aktiveHitzewarnungen.has(standort.id)) {
-                aktiveHitzewarnungen.add(standort.id);
-                zeigeHitzewarnungsToast(standort, temperatur);
+            if (istAktiv && !aktiveWarnungenSchluessel.has(schluessel)) {
+                aktiveWarnungenSchluessel.add(schluessel);
+                zeigeWarnungsToast(standort, eintrag);
+            } else if (!istAktiv) {
+                aktiveWarnungenSchluessel.delete(schluessel);
             }
-        } else {
-            aktiveHitzewarnungen.delete(standort.id);
-        }
+        });
     });
 
-    document.getElementById('widget-warnings').innerText = anzahl;
+    document.getElementById('widget-warnings').innerText = standorteMitWarnung;
 }
 
-// Blendet eine Toast-Meldung für eine neue Hitzewarnung ein (verschwindet nach 6s).
-function zeigeHitzewarnungsToast(standort, temperatur) {
+// Blendet eine Toast-Meldung für eine neue Warnung ein (verschwindet nach 6s).
+function zeigeWarnungsToast(standort, warnung) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.innerHTML = `<span class="material-icons-round" style="color:var(--accent-color);">warning</span> <span>Hitzewarnung: <b>${standort.name}</b> bei ${temperatur.toFixed(1)}°C!</span>`;
+    toast.innerHTML = `<span class="material-icons-round" style="color:var(--accent-color);">warning</span> <span><b>${warnung.titel}</b> – ${standort.name}</span>`;
     container.appendChild(toast);
     setTimeout(() => {
         toast.style.transform = 'translateX(120%)';
@@ -721,20 +729,24 @@ function erzeugePopupInhalt(standort) {
             </div>`;
     }
 
-    const temperatur = eintrag.werte['Air Temperature'];
-    const istKritisch = typeof temperatur === 'number' && temperatur >= HITZEWARNUNG_SCHWELLE_GRAD;
+    const warnungen = ermittleWarnungenFuerStandort(standort).filter(w => w.schweregrad >= 1);
+    const istKritisch = warnungen.length > 0;
 
     const messwertZeilen = eintrag.felder
         .map(feldName => erzeugePopupMesswertZeile(feldName, eintrag.werte[feldName]))
         .filter(Boolean)
         .join('');
 
+    const badges = istKritisch
+        ? warnungen.map(w => `<span class="status-badge bg-red">${w.titel}</span>`).join('')
+        : `<span class="status-badge bg-green">Normal</span>`;
+
     return `
         <div class="my-popup-inner">
             ${erzeugePopupCoverHtml(standort.name, istKritisch ? 'alert-cover' : '')}
             <div class="popup-body">
                 <div class="popup-status">
-                    <span class="status-badge ${istKritisch ? 'bg-red' : 'bg-green'}">${istKritisch ? 'Hitzewarnung' : 'Normal'}</span>
+                    ${badges}
                     <span class="uhi-badge">Stand: ${formatiereZeitpunkt(eintrag.zeitpunkt)}</span>
                 </div>
                 <div class="popup-metrics">${messwertZeilen}</div>
@@ -776,7 +788,7 @@ function zeigeStandortImDashboard(standort) {
     }
 
     document.getElementById('dash-title-name').innerText = standort.name;
-    document.getElementById('dash-warning-box').classList.add('hidden');
+    document.getElementById('dash-warnungen-container').innerHTML = '';
 
     const quelleLink = document.getElementById('dash-quelle-link');
     quelleLink.classList.toggle('hidden', !standort.datenquelleUrl);
@@ -816,15 +828,25 @@ function aktualisiereAktuelleWerteImDashboard(standort) {
         animiereZahlwechsel(spanElement, formatiereMesswert(feldName, rohwert));
     });
 
-    const temperatur = eintrag.werte['Air Temperature'];
-    const warnBox = document.getElementById('dash-warning-box');
-    if (typeof temperatur === 'number' && temperatur >= HITZEWARNUNG_SCHWELLE_GRAD) {
-        warnBox.classList.remove('hidden');
-        document.getElementById('dash-warning-text').innerText =
-            `An diesem Standort wurden ${temperatur.toFixed(1)} °C gemessen – das liegt über der Schwelle von ${HITZEWARNUNG_SCHWELLE_GRAD} °C, ab der hier von einer bioklimatischen Belastung ausgegangen wird.`;
-    } else {
-        warnBox.classList.add('hidden');
-    }
+    document.getElementById('dash-warnungen-container').innerHTML = ermittleWarnungenFuerStandort(standort)
+        .map(warnung => erzeugeWarnungsBoxHtml(standort, warnung))
+        .join('');
+}
+
+// Eine Warnungs-/Hinweisbox fürs Dashboard: schweregrad 0 = ruhiger "Hinweis"-Stil,
+// schweregrad >= 1 = auffälliger "Warnung"-Stil (wie zuvor bei der Hitzewarnung).
+// Ergänzt, wo möglich, den DWD-Klimanormal-Kontext (siehe dwd-vergleich.js).
+function erzeugeWarnungsBoxHtml(standort, warnung) {
+    const dwdKontext = erzeugeDwdKontextSatz(standort, warnung.typ);
+    return `
+        <div class="warning-box ${warnung.schweregrad >= 1 ? 'warnung' : 'hinweis'}">
+            <span class="material-icons-round">${warnung.schweregrad >= 1 ? 'error_outline' : 'info_outline'}</span>
+            <div>
+                <strong>${warnung.titel}</strong>
+                <p>${warnung.text}</p>
+                ${dwdKontext ? `<p class="warnung-dwd-kontext">${dwdKontext}</p>` : ''}
+            </div>
+        </div>`;
 }
 
 // Lädt (oder nutzt gecachte) Messhistorie, filtert nach Zeitraum und zeichnet alle Diagramme.
@@ -993,6 +1015,19 @@ function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten)
     const vieleDatenpunkte = werte.length > 300;
     const istBalken = info.diagrammTyp === 'bar';
 
+    // Die feste Achse (achseMin/achseMax) ist auf realistische Alltagswerte zugeschnitten
+    // und bleibt für den Normalfall unverändert. Übersteigt ein echter (oder simulierter
+    // Extremwetter-) Messwert diese Spanne, würde er sonst am Achsenrand abgeschnitten und
+    // dadurch unsichtbar "normal" aussehen - genau das Gegenteil einer Extremwert-Warnung.
+    // Die Achse wächst deshalb bei Bedarf mit, schrumpft aber nie unter die feste Spanne.
+    const gueltigeWerte = werte.filter(wert => typeof wert === 'number');
+    const spannweite = info.achseMax - info.achseMin;
+    const puffer = spannweite * 0.08;
+    const achseMax = gueltigeWerte.length && Math.max(...gueltigeWerte) > info.achseMax
+        ? Math.max(...gueltigeWerte) + puffer : info.achseMax;
+    const achseMin = gueltigeWerte.length && Math.min(...gueltigeWerte) < info.achseMin
+        ? Math.min(...gueltigeWerte) - puffer : info.achseMin;
+
     // DWD-Klimanormal als graue Vergleichslinie, zuerst im Array (= zuerst gezeichnet,
     // liegt also hinter der echten Datenlinie) - nur für Felder mit DWD-Entsprechung.
     const datasets = [];
@@ -1067,8 +1102,9 @@ function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten)
                 y: {
                     // Feste, realistische Skala statt automatischer Anpassung an die Datenspanne -
                     // sonst wirkt eine kleine Schwankung optisch wie ein dramatischer Ausschlag.
-                    min: info.achseMin,
-                    max: info.achseMax,
+                    // Wächst nur, wenn echte Daten die Spanne übersteigen (s. o.).
+                    min: achseMin,
+                    max: achseMax,
                     ticks: { color: '#94a3b8', font: { size: 11 } },
                     grid: { color: '#f1f5f9' }
                 }

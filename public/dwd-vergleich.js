@@ -159,3 +159,24 @@ function erzeugeKlimawandelEinordnungHtml(standort, feldName) {
 function formatiereAlsMonatTag(datum) {
     return `${String(datum.getMonth() + 1).padStart(2, '0')}-${String(datum.getDate()).padStart(2, '0')}`;
 }
+
+// Feld pro Warnungstyp, für den ein DWD-Klimanormal existiert (siehe wetterwarnungen.js).
+// UV bewusst ohne Eintrag: die WHO-Skala ist ein absoluter Maßstab, kein Klimamittel-Vergleich.
+const DWD_FELD_PRO_WARNUNGSTYP = { hitze: 'Air Temperature', wind: 'Wind Speed', trockenheit: 'Air Humidity' };
+
+// Ordnet eine Wetterwarnung zusätzlich in den saisonalen DWD-Normalwert ein - ein
+// kurzer Zusatzsatz für die Warnungsbox im Dashboard. null, wenn keine DWD-Entsprechung
+// existiert oder (noch) keine Daten für den Vergleich vorliegen.
+function erzeugeDwdKontextSatz(standort, warnungsTyp) {
+    const feldName = DWD_FELD_PRO_WARNUNGSTYP[warnungsTyp];
+    if (!feldName) return null;
+
+    const einordnung = berechneKlimaEinordnung(standort, feldName);
+    if (!einordnung) return null;
+
+    const info = ermittleMessfeldInfo(feldName);
+    const formatWert = (wert) => `${wert.toFixed(info.nachkommastellen)}${info.einheit ? ' ' + info.einheit : ''}`;
+    const vorzeichen = einordnung.abweichung >= 0 ? '+' : '';
+
+    return `Zum Vergleich: das DWD-Klimanormal für diesen Tag liegt bei ${formatWert(einordnung.normalMittel)} (Abweichung: ${vorzeichen}${formatWert(einordnung.abweichung)}).`;
+}

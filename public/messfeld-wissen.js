@@ -36,7 +36,7 @@ const MESSFELD_INFO = {
         tag: 'Mikroklima',
         titel: 'Luftfeuchtigkeit',
         kurzbeschreibung: 'Relativer Wasserdampfgehalt der Luft.',
-        interpretation: 'Eine hohe Luftfeuchtigkeit in Kombination mit hohen Temperaturen erschwert die körpereigene Kühlung durch Schwitzen spürbar – die Hitze wird dann als "schwül" empfunden.',
+        interpretation: 'Eine hohe Luftfeuchtigkeit in Kombination mit hohen Temperaturen erschwert die körpereigene Kühlung durch Schwitzen spürbar – die Hitze wird dann als "schwül" empfunden. Am anderen Ende der Skala gilt unter 40 % als spürbar trockene Luft, unter 30 % warnt diese Seite automatisch vor Trockenheit - besonders in Kombination mit Hitze, da das die Austrocknung von Böden und Vegetation begünstigt.',
         empfehlung: 'Bei gleichzeitig hoher Temperatur und hoher Luftfeuchtigkeit sportliche Aktivitäten reduzieren und auf ausreichende Flüssigkeitszufuhr achten.'
     },
     'Wind Speed': {
@@ -51,7 +51,7 @@ const MESSFELD_INFO = {
         tag: 'Luftaustausch',
         titel: 'Windgeschwindigkeit',
         kurzbeschreibung: 'Geschwindigkeit der Luftbewegung – wichtig für den Abtransport von Wärme und Schadstoffen.',
-        interpretation: 'Niedrige Windgeschwindigkeiten an heißen Tagen bedeuten, dass sich aufgeheizte Luft an diesem Standort länger hält, da kaum Luftaustausch stattfindet.',
+        interpretation: 'Niedrige Windgeschwindigkeiten an heißen Tagen bedeuten, dass sich aufgeheizte Luft an diesem Standort länger hält, da kaum Luftaustausch stattfindet. Eingestuft wird nach der international genormten Beaufort-Skala: ab Windstärke 6 (39 km/h im Mittel) warnt diese Seite vor starkem Wind, ab Windstärke 9 vor Sturm, ab Windstärke 12 vor Orkan. Da die Sensoren nur den Mittelwind messen, keine Böen, ersetzt das keine offizielle DWD-Sturmwarnung.',
         empfehlung: 'Bei anhaltender Windstille und Hitze schattige, gut durchlüftete Bereiche bevorzugen.'
     },
     'Wind Direction Sensor': {
@@ -110,7 +110,7 @@ const MESSFELD_INFO = {
         tag: 'Strahlung',
         titel: 'UV-Index',
         kurzbeschreibung: 'Wissenschaftlicher Indikator für die Intensität der sonnenbrandwirksamen UV-Strahlung, Skala 0 bis 11+.',
-        interpretation: 'Werte ab 3 machen erste Schutzmaßnahmen sinnvoll, ab 8 besteht ein hohes Risiko für Hautschäden bei ungeschützter, direkter Sonnenexposition.',
+        interpretation: 'Werte ab 3 machen erste Schutzmaßnahmen sinnvoll, ab 8 besteht ein hohes Risiko für Hautschäden bei ungeschützter, direkter Sonnenexposition. Nach der WHO-Skala warnt diese Seite ab Index 8 ("Sehr hoch") und ab Index 11 ("Extrem").',
         empfehlung: 'Bei einem UV-Index über 5 Sonnenschutz (LSF 30+) verwenden und die pralle Mittagssonne zwischen 11 und 15 Uhr meiden.'
     }
 };

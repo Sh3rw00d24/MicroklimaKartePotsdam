@@ -7,6 +7,14 @@
 // datenquelleUrl: Link zum Rohdatensatz auf der UDP (optional, wird im Popup gezeigt).
 const STANDORTE = [
     {
+        id: 'stadtwerke',
+        name: 'Stadtwerke Potsdam',
+        lat:  52.38258, 
+        lng: 13.14078,
+        resourceId: '647a3953-222f-4b2c-b837-3c60bfbb3e40',
+        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/770e80e1-8a7d-4768-9af7-bcea6fa6d44d/resource/647a3953-222f-4b2c-b837-3c60bfbb3e40'
+    },
+    {
         id: 'steubenplatz-alter-markt',
         name: 'am Steubenplatz / Alter Markt',
         lat: 52.39533,
@@ -19,14 +27,14 @@ const STANDORTE = [
         name: 'Stadtbad Babelsberg',
         lat: 52.4057289314038,
         lng: 13.085039746744865,
-        resourceId: '42cbab4d-7f0a-4dcd-b48b-2febfb671275',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/e7d0cbea-7045-46f1-9dd7-95e6f39299bb/resource/42cbab4d-7f0a-4dcd-b48b-2febfb671275'
+        resourceId: '969183f0-736e-4aa5-9e40-368728903ba9',
+        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/70f2678a-0426-43ca-a22a-5ee474416fa9/resource/969183f0-736e-4aa5-9e40-368728903ba9'
     },
     {
         id: 'krampnitz',
-        name: 'Stadtteil Krampnitz',
-        lat: 52.46062,
-        lng: 13.04624,
+        name: 'Nordgymnasium Krampnitz',
+        lat: 52.4581,
+        lng: 13.0472,
         resourceId: '97b07d43-bf05-44dd-bb56-e678d645169a',
         datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/97c35f6e-9fc1-4314-bdc9-4a4bf2dd1b57/resource/97b07d43-bf05-44dd-bb56-e678d645169a'
     },
@@ -43,8 +51,8 @@ const STANDORTE = [
         name: 'Waldbad Templin',
         lat: 52.360015,
         lng: 13.020075,
-        resourceId: 'a0c1a961-7591-4a8a-a0f5-8cfc91c01b90',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/d1fe061d-c956-4ed8-a194-c3044b91e79a/resource/a0c1a961-7591-4a8a-a0f5-8cfc91c01b90',
+        resourceId: '549a6420-03c8-45e9-9ec5-14a0aad67e3a',
+        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/dc2cd9f8-44a9-4cf6-89f0-67f286959223/resource/549a6420-03c8-45e9-9ec5-14a0aad67e3a',
         hinweis: 'Gemeldeter geo_point liegt rund 8 km entfernt (Nähe Stern/Kirchsteigfeld) - das ist das LoRaWAN-Gateway, nicht der Sensor, und wird daher ignoriert (siehe MAX_PLAUSIBLE_ABWEICHUNG_KM in script.js). Marker bleibt an dieser Koordinate.'
     },
     {
@@ -52,8 +60,8 @@ const STANDORTE = [
         name: 'Wassersportzentrum Hermannswerder',
         lat: 52.38230,
         lng: 13.03945,
-        resourceId: '7fda3495-ac56-4a9f-82be-603fd4aa3328',
-        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/46a9bdcb-d390-4570-9673-d774a0d79840/resource/7fda3495-ac56-4a9f-82be-603fd4aa3328'
+        resourceId: 'e818bbbd-258e-4ac6-b472-c33d39ce3d37',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/82f63c4d-d09c-43ff-a1e1-1f7d39d77b6b/resource/e818bbbd-258e-4ac6-b472-c33d39ce3d37'
     },
     {
         id: 'johann-boumann-platz',
@@ -82,8 +90,8 @@ const STANDORTE = [
         name: 'Kita Hoffbauer "Regenbogenland"', 
         lat: 52.38447,
         lng: 13.13858,
-        resourceId: '02f2e3e6-7539-4c44-9d36-add2847e6c7b',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/3135b1fd-623b-4d3a-aca6-33dbce81cf98/resource/02f2e3e6-7539-4c44-9d36-add2847e6c7b' 
+        resourceId: 'af27322f-2852-4c56-86b2-bc8cf4c45fda',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/285e2f15-bb60-40a1-bac7-4080eb01d2eb/resource/2cfd98ad-2c13-428e-aad8-e013e54a7b8e' 
     },
     {
         id: 'wasserspielplatz-volkspark',
@@ -91,22 +99,23 @@ const STANDORTE = [
         lat: 52.41816,
         lng: 13.04480,
         resourceId: 'a25714ae-0270-4a0c-a0cc-d6bbcee906c0',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/b868240d-2568-41dd-bc24-495df7aa8c87/resource/a25714ae-0270-4a0c-a0cc-d6bbcee906c0'
+        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/3cb6ef68-d74c-4cbb-ae39-cd7c1ca996c8/resource/af27322f-2852-4c56-86b2-bc8cf4c45fda'
     },
     {
         id: 'kepplerplatz',
         name: 'Kepplerplatz',
         lat: 52.37642,
         lng: 13.12976,
-        resourceId: 'b42e144b-f1c9-44aa-a366-25060423d627',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/69ba82a7-d536-4e59-9ae4-75f329a40114/resource/b42e144b-f1c9-44aa-a366-25060423d627'
+        resourceId: '2ae838e8-8fee-479f-83e2-6b963e97efe8',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/a75632e5-1d2a-4288-bfea-9368d121942d/resource/2ae838e8-8fee-479f-83e2-6b963e97efe8'
     },
     {
         id: 'kita-sausewind',
         name: 'KiTa Sausewind',
         lat: 52.39482,
         lng: 13.07486,
-        resourceId: null
+        resourceId: 'a6d57191-89d0-4d8f-b1c6-29feda06167a',
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/af07c52d-b950-461c-82f2-9b8e66281725/resource/a6d57191-89d0-4d8f-b1c6-29feda06167a'
     },
     {
         id: 'familienzentrum-biesamkiez-kis',

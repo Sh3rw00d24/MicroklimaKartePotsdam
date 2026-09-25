@@ -72,7 +72,7 @@ const MESSFELD_INFO = {
         bezeichnung: 'Luftdruck',
         einheit: 'hPa',
         icon: 'speed',
-        farbe: '#6366f1',
+        farbe: '#a855f7',
         diagrammTyp: 'line',
         nachkommastellen: 1,
         umrechnen: (wert) => wert, // liegt dank normalisiereDatensatz() schon in hPa vor
@@ -102,7 +102,7 @@ const MESSFELD_INFO = {
         bezeichnung: 'UV-Index',
         einheit: '',
         icon: 'wb_sunny',
-        farbe: '#eab308',
+        farbe: '#ec4899',
         diagrammTyp: 'line', // vorher 'bar' - als einziger Balken zwischen lauter Linien wirkte es willkürlich
         nachkommastellen: 1,
         umrechnen: (wert) => wert,
@@ -112,6 +112,21 @@ const MESSFELD_INFO = {
         kurzbeschreibung: 'Wissenschaftlicher Indikator für die Intensität der sonnenbrandwirksamen UV-Strahlung, Skala 0 bis 11+.',
         interpretation: 'Werte ab 3 machen erste Schutzmaßnahmen sinnvoll, ab 8 besteht ein hohes Risiko für Hautschäden bei ungeschützter, direkter Sonnenexposition. Nach der WHO-Skala warnt diese Seite ab Index 8 ("Sehr hoch") und ab Index 11 ("Extrem").',
         empfehlung: 'Bei einem UV-Index über 5 Sonnenschutz (LSF 30+) verwenden und die pralle Mittagssonne zwischen 11 und 15 Uhr meiden.'
+    },
+    'Rain': {
+        bezeichnung: 'Niederschlag',
+        einheit: 'mm/h',
+        icon: 'umbrella',
+        farbe: '#06b6d4',
+        diagrammTyp: 'bar',
+        nachkommastellen: 1,
+        umrechnen: (wert) => wert,
+        achseMin: 0, achseMax: 20,
+        tag: 'Niederschlag',
+        titel: 'Niederschlagsintensität',
+        kurzbeschreibung: 'Regenintensität in mm/h – der Sensor berechnet das laufend aus dem Niederschlag der letzten 10 Minuten, hochgerechnet auf eine Stunde.',
+        interpretation: 'Jeder Balken ist eine Momentaufnahme der Intensität zum Messzeitpunkt, keine Tagessumme: 0 zwischen zwei Balken heißt nicht zwingend, dass es dazwischen durchgehend trocken war. Grobe Einordnung: bis 2,5 mm/h leichter, bis 10 mm/h mäßiger, darüber starker bis sehr starker Regen.',
+        empfehlung: 'Bei anhaltend hohen Werten an diesem Standort auf kurzfristige Pfützenbildung und Überlastung von Gullys in tiefliegenden Bereichen achten, besonders in Kombination mit starkem Wind.'
     }
 };
 
@@ -140,9 +155,9 @@ function ermittleMessfeldInfo(feldName) {
 const TECHNISCHE_FELDER = ['_id', 'time', 'dev_eui', 'geo_point'];
 
 // Messwerte, die komplett aus der Seite ausgeblendet werden sollen (Schlüsselwort,
-// unabhängig von Groß-/Kleinschreibung) - werden schon beim Normalisieren verworfen,
-// tauchen also nirgends auf (Karte, Popup, Diagramme, Ø-Werte).
-const AUSGEBLENDETE_FELDER_SCHLUESSELWOERTER = ['rain'];
+// unabhängig von Groß-/Kleinschreibung) - werden schon beim Normalisieren verworfen.
+// Aktuell keine (Niederschlag wird seit Kurzem wieder angezeigt, siehe MESSFELD_INFO.Rain).
+const AUSGEBLENDETE_FELDER_SCHLUESSELWOERTER = [];
 
 function istAusgeblendetesFeld(rohName) {
     const schluessel = rohName.toLowerCase();
@@ -158,6 +173,7 @@ function ermittleKanonischenFeldnamen(rohName) {
 
     if (schluessel.includes('temperature')) return 'Air Temperature';
     if (schluessel.includes('humid')) return 'Air Humidity';
+    if (schluessel.includes('rain')) return 'Rain';
     if (schluessel.includes('light')) return 'Light Intensity';
     if (schluessel.includes('uv')) return 'UV Index';
     if (schluessel.includes('wind') && schluessel.includes('speed')) return 'Wind Speed';
@@ -165,6 +181,32 @@ function ermittleKanonischenFeldnamen(rohName) {
     if (schluessel.includes('pressure')) return 'Barometric Pressure';
 
     return rohName; // unbekanntes Feld: unverändert lassen, siehe ermittleMessfeldInfo()
+}
+
+// Physikalisch plausible Grenzen je Feld (NACH Einheiten-Umrechnung, z. B. Luftdruck
+// bereits in hPa, Wind noch in m/s). Großzügig an reale Extremwerte angelehnt, damit
+// seltene aber echte Extremereignisse nicht fälschlich verworfen werden - fängt nur
+// eindeutig kaputte Rohwerte ab. Grund: bei diesen Sensoren kommt es vor, dass eine
+// einzelne Übertragung teilweise beschädigt ist (beobachtet: Temperatur/Feuchte fehlten
+// UND der Luftdruck-Rohwert ergab umgerechnet 286 hPa - physikalisch unmöglich, der
+// niedrigste je gemessene Meeresspiegeldruck weltweit liegt bei ca. 870 hPa).
+// Werte außerhalb werden wie ein fehlender Messwert behandelt (null) - die nächste
+// gültige Messung füllt die Lücke automatisch (siehe ermittleAktuelleWerteGemergt() in script.js).
+const PLAUSIBLE_BEREICH = {
+    'Air Temperature': { min: -30, max: 50 },
+    'Air Humidity': { min: 0, max: 100 },
+    'Wind Speed': { min: 0, max: 75 },
+    'Wind Direction Sensor': { min: 0, max: 360 },
+    'Barometric Pressure': { min: 870, max: 1085 },
+    'Light Intensity': { min: 0, max: 150000 },
+    'UV Index': { min: 0, max: 20 },
+    'Rain': { min: 0, max: 200 }
+};
+
+function istPlausibel(kanonischerName, wert) {
+    const bereich = PLAUSIBLE_BEREICH[kanonischerName];
+    if (!bereich || typeof wert !== 'number' || Number.isNaN(wert)) return true;
+    return wert >= bereich.min && wert <= bereich.max;
 }
 
 // Ein Messwert-Datensatz -> einheitliche Feldnamen + Einheiten. Luftdruck-Sonderfall:
@@ -180,6 +222,10 @@ function normalisiereDatensatz(datensatz) {
 
         if (kanonischerName === 'Barometric Pressure' && typeof wert === 'number' && wert > 10000) {
             wert = wert / 100;
+        }
+
+        if (!TECHNISCHE_FELDER.includes(kanonischerName) && !istPlausibel(kanonischerName, wert)) {
+            wert = null;
         }
 
         if (ergebnis[kanonischerName] === undefined || ergebnis[kanonischerName] === null) {
@@ -214,13 +260,13 @@ const KARTEN_METRIKEN = {
     temp: {
         feld: 'Air Temperature',
         legendentitel: 'Temperatur (°C)',
-        erklaerung: 'Zeigt die Temperatur an jedem Standort als Farbverlauf auf der Karte.',
+        erklaerung: 'Zeigt die Temperatur als Farbverlauf auf der Karte. Die Fläche zwischen zwei Sensoren ist kein echter Messwert, sondern ein nach Entfernung gewichteter Schätzwert zwischen ihnen (Interpolation) - je näher an einem Sensor, desto stärker bestimmt der dessen Farbe.',
         farbverlauf: { 0.1: '#3b82f6', 0.3: '#06b6d4', 0.6: '#eab308', 0.8: '#ef4444', 1.0: '#7f1d1d' }
     },
     wind: {
         feld: 'Wind Speed',
         legendentitel: 'Windgeschwindigkeit (km/h)',
-        erklaerung: 'Zeigt die Windgeschwindigkeit als Farbverlauf und die Windrichtung als Pfeile auf der Karte.',
+        erklaerung: 'Zeigt die Windgeschwindigkeit als Farbverlauf (nach Entfernung gewichteter Schätzwert zwischen den Sensoren, siehe Temperatur) und die Windrichtung als Pfeile auf der Karte.',
         // Cyan -> Blau -> Violett statt Grau/Schwarz - wirkt nach Wind statt nach Schatten.
         farbverlauf: { 0.1: '#ecfeff', 0.4: '#67e8f9', 0.7: '#38bdf8', 0.9: '#6366f1', 1.0: '#a21caf' }
     },
@@ -234,7 +280,7 @@ const KARTEN_METRIKEN = {
     humidity: {
         feld: 'Air Humidity',
         legendentitel: 'Luftfeuchtigkeit (%)',
-        erklaerung: 'Zeigt die relative Luftfeuchtigkeit als Farbverlauf auf der Karte.',
+        erklaerung: 'Zeigt die relative Luftfeuchtigkeit als Farbverlauf auf der Karte (nach Entfernung gewichteter Schätzwert zwischen den Sensoren, siehe Temperatur).',
         farbverlauf: { 0.1: '#dcfce7', 0.4: '#6ee7b7', 0.7: '#10b981', 0.9: '#047857', 1.0: '#022c22' }
     },
     sun_intensity: {
@@ -254,5 +300,11 @@ const KARTEN_METRIKEN = {
         legendentitel: 'Luftdruck (hPa)',
         erklaerung: 'Zeigt den Luftdruck als Farbverlauf auf der Karte.',
         farbverlauf: { 0.1: '#e0e7ff', 0.4: '#a5b4fc', 0.7: '#6366f1', 0.9: '#4338ca', 1.0: '#1e1b4b' }
+    },
+    regen: {
+        feld: 'Rain',
+        legendentitel: 'Niederschlag (mm/h)',
+        erklaerung: 'Zeigt die aktuelle Regenintensität als Farbverlauf auf der Karte. Regen fällt oft sehr lokal - die Fläche zwischen den Sensoren ist ein geschätzter Übergang, kein tatsächlich gemessener Wert.',
+        farbverlauf: { 0.1: '#e0f2fe', 0.4: '#7dd3fc', 0.7: '#0ea5e9', 0.9: '#0369a1', 1.0: '#0c4a6e' }
     }
 };

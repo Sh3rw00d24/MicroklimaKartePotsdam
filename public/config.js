@@ -91,15 +91,16 @@ const STANDORTE = [
         lat: 52.38447,
         lng: 13.13858,
         resourceId: 'af27322f-2852-4c56-86b2-bc8cf4c45fda',
-        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/285e2f15-bb60-40a1-bac7-4080eb01d2eb/resource/2cfd98ad-2c13-428e-aad8-e013e54a7b8e' 
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/3cb6ef68-d74c-4cbb-ae39-cd7c1ca996c8/resource/af27322f-2852-4c56-86b2-bc8cf4c45fda'
     },
     {
         id: 'wasserspielplatz-volkspark',
         name: 'Wasserspielplatz Volkspark',
         lat: 52.41816,
         lng: 13.04480,
-        resourceId: 'a25714ae-0270-4a0c-a0cc-d6bbcee906c0',
-        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/3cb6ef68-d74c-4cbb-ae39-cd7c1ca996c8/resource/af27322f-2852-4c56-86b2-bc8cf4c45fda'
+        resourceId: 'af27322f-2852-4c56-86b2-bc8cf4c45fda',
+        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/3cb6ef68-d74c-4cbb-ae39-cd7c1ca996c8/resource/af27322f-2852-4c56-86b2-bc8cf4c45fda',
+        hinweis: 'resourceId liefert aktuell HTTP 404 bei der Datenplattform (geprüft 25.09.2026) - die Ressource wurde vermutlich beim letzten Sensor-Update auf der UDP umgezogen/erneuert. Bitte die aktuelle resource_id für diesen Standort auf der Datenplattform neu heraussuchen und hier eintragen.'
     },
     {
         id: 'kepplerplatz',

@@ -16,12 +16,28 @@ const ZEITRAUM_IN_MILLISEKUNDEN = {
 
 const HIMMELSRICHTUNGEN = ['N', 'NNO', 'NO', 'ONO', 'O', 'OSO', 'SO', 'SSO', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 
+// Die Sensoren senden Zeitstempel ohne Zeitzone (z. B. "2026-09-25T09:35:05"), meinen
+// damit aber UTC (per Stichprobe gegen die tatsächliche Uhrzeit verifiziert). Ohne
+// explizite Kennzeichnung interpretiert JavaScript einen solchen String fälschlich als
+// bereits-lokale Zeit - dadurch erschienen Messwerte 1-2h (je nach Winter-/Sommerzeit)
+// in der Vergangenheit, sowohl in der Anzeige als auch in der Zeitraum-Filterung. Ein
+// angehängtes "Z" erzwingt die korrekte UTC-Interpretation; hat der String schon eine
+// Zeitzone (z. B. synthetische Testdaten aus dev-test.js via toISOString()), bleibt er
+// unverändert. DIESE Funktion an jeder Stelle nutzen, die einen rohen Sensor-Zeitstempel
+// parst - niemals direkt new Date(zeitstempel).
+function parseSensorZeitpunkt(zeitpunktText) {
+    if (!zeitpunktText) return null;
+    const hatZeitzone = /Z$|[+-]\d{2}:?\d{2}$/.test(zeitpunktText);
+    return new Date(hatZeitzone ? zeitpunktText : zeitpunktText + 'Z');
+}
+
 let karte;
 let interpolationsCanvas; // eigene Ebene für den Wetterkarten-Farbverlauf, siehe initialisiereWetterInterpolation()
 let windPfeilEbene;
 let markerNachStandortId = {};
 let aktuelleWerteNachStandortId = {};
 let verlaufCacheNachStandortId = {};
+let verlaufAnfrageGeneration = {}; // pro Standort-ID ein Zähler, verwirft veraltete Fetch-Antworten (siehe ladeUndZeigeVerlauf)
 let diagrammInstanzenNachFeld = {};
 let aktiveWarnungenSchluessel = new Set(); // "standortId:warnungsTyp", z.B. "kepplerplatz:wind"
 
@@ -317,7 +333,7 @@ async function aktualisiereAlleAktuellenWerte() {
 
         aktuelleWerteNachStandortId[standort.id] = {
             zeitpunkt: neuesterDatensatz ? neuesterDatensatz.time : null,
-            werte: neuesterDatensatz,
+            werte: ermittleAktuelleWerteGemergt(antwort.messwerte),
             felder
         };
 
@@ -354,7 +370,8 @@ async function holeMesswerte(resourceId, limit) {
     }
 }
 
-// Erster Datensatz mit echtem Inhalt (überspringt leere Fehlversuche der Station).
+// Erster Datensatz mit echtem Inhalt (überspringt leere Fehlversuche der Station) -
+// liefert den Zeitstempel/geo_point für "zuletzt gesendet".
 function findeNeuestenGueltigenDatensatz(messwerte) {
     for (const datensatz of messwerte) {
         const hatWert = Object.keys(datensatz).some(feld =>
@@ -363,6 +380,26 @@ function findeNeuestenGueltigenDatensatz(messwerte) {
         if (hatWert) return datensatz;
     }
     return messwerte[0] || null;
+}
+
+// Führt die "aktuellen Werte" über die letzten Messungen hinweg zusammen: pro Feld
+// zählt der neueste NICHT-leere Wert. Diese Sensoren senden gelegentlich eine teilweise
+// beschädigte Übertragung (einzelne Felder fehlen oder sind unplausibel und wurden
+// bereits in normalisiereDatensatz() zu null - siehe PLAUSIBLE_BEREICH); ohne diese
+// Zusammenführung hätte allein die neueste Übertragung über "--" oder echten Wert
+// entschieden, auch wenn eine Minute alte, gute Messung längst vorlag. messwerte ist
+// neueste zuerst (CKAN-Reihenfolge).
+function ermittleAktuelleWerteGemergt(messwerte) {
+    const ergebnis = {};
+    for (const datensatz of messwerte) {
+        for (const feld of Object.keys(datensatz)) {
+            if (TECHNISCHE_FELDER.includes(feld)) continue;
+            if (ergebnis[feld] === undefined && datensatz[feld] !== null && datensatz[feld] !== undefined) {
+                ergebnis[feld] = datensatz[feld];
+            }
+        }
+    }
+    return ergebnis;
 }
 
 // Übernimmt die Sensor-Position (geo_point), verwirft aber unplausible Ausreißer (siehe MAX_PLAUSIBLE_ABWEICHUNG_KM).
@@ -855,12 +892,18 @@ function erzeugeWarnungsBoxHtml(standort, warnung) {
 }
 
 // Lädt (oder nutzt gecachte) Messhistorie, filtert nach Zeitraum und zeichnet alle Diagramme.
+// generation-Zähler: wird zwischen Zeitraum-Wechsel oder Standortwechsel schnell mehrfach
+// geklickt, würde sonst die ZULETZT ANTWORTENDE (nicht die zuletzt angeklickte) Anfrage
+// das Dashboard bestimmen - eine ältere, inzwischen überholte Anfrage bricht deshalb ab,
+// sobald sie merkt, dass in der Zwischenzeit eine neuere gestartet wurde.
 async function ladeUndZeigeVerlauf(standort) {
+    const generation = (verlaufAnfrageGeneration[standort.id] = (verlaufAnfrageGeneration[standort.id] || 0) + 1);
     let zwischengespeichert = verlaufCacheNachStandortId[standort.id];
 
     if (!zwischengespeichert) {
         zeigeLadePlatzhalter();
         const antwort = await holeMesswerte(standort.resourceId, ANZAHL_FUER_VERLAUF);
+        if (generation !== verlaufAnfrageGeneration[standort.id]) return; // überholt, eine neuere Anfrage läuft bereits
         if (!antwort.erfolgreich) {
             document.getElementById('dash-desc').innerText = `Verlaufsdaten konnten nicht geladen werden: ${antwort.fehlermeldung}`;
             return;
@@ -875,7 +918,7 @@ async function ladeUndZeigeVerlauf(standort) {
     const grenzeInMs = ZEITRAUM_IN_MILLISEKUNDEN[ausgewaehlterZeitraum];
     const jetzt = Date.now();
     const gefiltert = grenzeInMs
-        ? zwischengespeichert.messwerte.filter(datensatz => (jetzt - new Date(datensatz.time).getTime()) <= grenzeInMs)
+        ? zwischengespeichert.messwerte.filter(datensatz => (jetzt - parseSensorZeitpunkt(datensatz.time).getTime()) <= grenzeInMs)
         : zwischengespeichert.messwerte;
 
     const chronologisch = [...gefiltert].reverse(); // CKAN liefert neueste zuerst, Diagramme brauchen chronologisch
@@ -1208,14 +1251,14 @@ function bestimmeHimmelsrichtung(gradzahl) {
 // Zeitstempel -> lesbares deutsches Datum mit Uhrzeit.
 function formatiereZeitpunkt(zeitpunktText) {
     if (!zeitpunktText) return '–';
-    const datum = new Date(zeitpunktText);
+    const datum = parseSensorZeitpunkt(zeitpunktText);
     if (Number.isNaN(datum.getTime())) return zeitpunktText;
     return datum.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
 }
 
 // Zeitstempel -> kurze Achsenbeschriftung für Diagramme.
 function formatiereZeitpunktFuerAchse(zeitpunktText) {
-    return new Date(zeitpunktText).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return parseSensorZeitpunkt(zeitpunktText).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 // Hex-Farbe -> rgba() mit gegebener Deckkraft.

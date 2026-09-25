@@ -45,7 +45,7 @@ function erzeugeDwdVergleichsDaten(feldName, chronologischeDaten) {
     if (!dwdSchluessel || !dwdReferenzdaten) return null;
 
     return chronologischeDaten.map(datensatz => {
-        const tag = formatiereAlsMonatTag(new Date(datensatz.time));
+        const tag = formatiereAlsMonatTag(parseSensorZeitpunkt(datensatz.time));
         const normal = dwdReferenzdaten.klimanormalProTag[tag]?.[dwdSchluessel];
         return normal ? normal.mittel : null;
     });
@@ -63,7 +63,7 @@ function berechneKlimaEinordnung(standort, feldName) {
     const info = ermittleMessfeldInfo(feldName);
     const jetzt = Date.now();
     const letzte24h = zwischengespeichert.messwerte
-        .filter(datensatz => (jetzt - new Date(datensatz.time).getTime()) <= 24 * 60 * 60 * 1000)
+        .filter(datensatz => (jetzt - parseSensorZeitpunkt(datensatz.time).getTime()) <= 24 * 60 * 60 * 1000)
         .map(datensatz => datensatz[feldName])
         .filter(wert => typeof wert === 'number')
         .map(wert => info.umrechnen(wert));

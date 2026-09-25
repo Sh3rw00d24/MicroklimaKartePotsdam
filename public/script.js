@@ -328,16 +328,16 @@ async function aktualisiereAlleAktuellenWerte() {
             return;
         }
 
-        const neuesterDatensatz = findeNeuestenGueltigenDatensatz(antwort.messwerte);
         const felder = antwort.felder.map(feld => feld.id).filter(feld => !TECHNISCHE_FELDER.includes(feld));
+        const werteDatensatz = findeLetzteVollstaendigeWerte(antwort.messwerte, felder);
 
         aktuelleWerteNachStandortId[standort.id] = {
-            zeitpunkt: neuesterDatensatz ? neuesterDatensatz.time : null,
-            werte: ermittleAktuelleWerteGemergt(antwort.messwerte),
+            zeitpunkt: werteDatensatz ? werteDatensatz.time : null,
+            werte: werteDatensatz,
             felder
         };
 
-        aktualisierePositionAusGeoPunkt(standort, neuesterDatensatz);
+        aktualisierePositionAusGeoPunkt(standort, werteDatensatz);
     }));
 
     aktualisiereVerbindungsstatus(standorteMitSensor);
@@ -370,36 +370,28 @@ async function holeMesswerte(resourceId, limit) {
     }
 }
 
-// Erster Datensatz mit echtem Inhalt (überspringt leere Fehlversuche der Station) -
-// liefert den Zeitstempel/geo_point für "zuletzt gesendet".
-function findeNeuestenGueltigenDatensatz(messwerte) {
-    for (const datensatz of messwerte) {
-        const hatWert = Object.keys(datensatz).some(feld =>
-            !TECHNISCHE_FELDER.includes(feld) && datensatz[feld] !== null && datensatz[feld] !== undefined
-        );
-        if (hatWert) return datensatz;
-    }
-    return messwerte[0] || null;
-}
+// Sucht den neuesten Datensatz, in dem ALLE vom Sensor bekannten Felder einen gültigen
+// Wert haben - ein echter, in sich konsistenter Messzeitpunkt, statt Werte aus
+// verschiedenen Übertragungen zu vermischen. Diese Sensoren senden gelegentlich eine
+// teilweise beschädigte Übertragung (einzelne Felder fehlen oder sind unplausibel und
+// wurden bereits in normalisiereDatensatz() zu null - siehe PLAUSIBLE_BEREICH); in dem
+// Fall zeigt die Seite lieber die letzten VOLLSTÄNDIGEN Daten (mit ihrem eigenen, ggf.
+// etwas älteren Zeitstempel) als eine Mischung oder Lücken. Ist im Abrufzeitraum kein
+// vollständiger Datensatz dabei, gewinnt der mit den wenigsten fehlenden Feldern.
+// messwerte ist neueste zuerst (CKAN-Reihenfolge).
+function findeLetzteVollstaendigeWerte(messwerte, felderListe) {
+    let bester = null;
+    let wenigsteLuecken = Infinity;
 
-// Führt die "aktuellen Werte" über die letzten Messungen hinweg zusammen: pro Feld
-// zählt der neueste NICHT-leere Wert. Diese Sensoren senden gelegentlich eine teilweise
-// beschädigte Übertragung (einzelne Felder fehlen oder sind unplausibel und wurden
-// bereits in normalisiereDatensatz() zu null - siehe PLAUSIBLE_BEREICH); ohne diese
-// Zusammenführung hätte allein die neueste Übertragung über "--" oder echten Wert
-// entschieden, auch wenn eine Minute alte, gute Messung längst vorlag. messwerte ist
-// neueste zuerst (CKAN-Reihenfolge).
-function ermittleAktuelleWerteGemergt(messwerte) {
-    const ergebnis = {};
     for (const datensatz of messwerte) {
-        for (const feld of Object.keys(datensatz)) {
-            if (TECHNISCHE_FELDER.includes(feld)) continue;
-            if (ergebnis[feld] === undefined && datensatz[feld] !== null && datensatz[feld] !== undefined) {
-                ergebnis[feld] = datensatz[feld];
-            }
+        const luecken = felderListe.filter(feld => datensatz[feld] === null || datensatz[feld] === undefined).length;
+        if (luecken === 0) return datensatz;
+        if (luecken < wenigsteLuecken) {
+            wenigsteLuecken = luecken;
+            bester = datensatz;
         }
     }
-    return ergebnis;
+    return bester;
 }
 
 // Übernimmt die Sensor-Position (geo_point), verwirft aber unplausible Ausreißer (siehe MAX_PLAUSIBLE_ABWEICHUNG_KM).
@@ -742,6 +734,17 @@ function erzeugePopupCoverHtml(titel, zusatzKlasse) {
         </div>`;
 }
 
+// Link zu den Rohdaten dieses Standorts auf der UDP - wird im Popup IMMER gezeigt,
+// wenn konfiguriert (auch im Fehler-/Ladezustand), damit sich jeder selbst ein Bild
+// von der Quelle machen kann.
+function erzeugePopupQuelleLinkHtml(standort) {
+    if (!standort.datenquelleUrl) return '';
+    return `
+        <a href="${standort.datenquelleUrl}" target="_blank" rel="noopener" class="quelle-link popup-quelle-link">
+            Rohdaten auf der Urbanen Datenplattform ansehen <span class="material-icons-round">north_east</span>
+        </a>`;
+}
+
 // Baut den kompletten Popup-Inhalt: Platzhalter, Fehler/Ladezustand oder echte Messwerte.
 function erzeugePopupInhalt(standort) {
     if (!standort.resourceId) {
@@ -766,7 +769,8 @@ function erzeugePopupInhalt(standort) {
                 ${erzeugePopupCoverHtml(standort.name)}
                 <div class="popup-body">
                     <div class="popup-status"><span class="status-badge bg-grau">${eintrag?.fehler ? 'Fehler beim Laden' : 'Daten werden geladen …'}</span></div>
-                    ${eintrag?.fehler ? `<div class="popup-mini-desc">${eintrag.fehler}</div>` : ''}
+                    ${eintrag?.fehler ? `<div class="popup-mini-desc">${eintrag.fehler} Die Messdaten sollten eigentlich von hier kommen:</div>` : ''}
+                    ${erzeugePopupQuelleLinkHtml(standort)}
                 </div>
             </div>`;
     }
@@ -792,6 +796,7 @@ function erzeugePopupInhalt(standort) {
                     <span class="uhi-badge">Stand: ${formatiereZeitpunkt(eintrag.zeitpunkt)}</span>
                 </div>
                 <div class="popup-metrics">${messwertZeilen}</div>
+                ${erzeugePopupQuelleLinkHtml(standort)}
                 <a href="#dashboard-section" class="popup-btn" onclick="document.getElementById('dashboard-section').scrollIntoView({behavior: 'smooth'}); return false;">
                     Detaillierte Analyse ansehen <span class="material-icons-round" style="font-size:16px;">arrow_downward</span>
                 </a>
@@ -1052,8 +1057,46 @@ function erzeugeVerlaufsFuellung(context, hexFarbe) {
     return verlauf;
 }
 
+// Fasst Zeitreihen-Rohdaten zu einem Mittelwert pro Kalenderstunde zusammen (lokale
+// Zeit, chronologisch). Für Regen: der Sensor sendet alle paar Minuten einen mm/h-
+// Momentanwert (siehe MESSFELD_INFO.Rain), das Diagramm soll aber pro Stunde einen
+// Balken zeigen statt jede Einzelmessung - der Mittelwert bleibt dabei korrekt in mm/h
+// (Durchschnitt mehrerer Raten ist wieder eine Rate, keine Einheiten-Umrechnung nötig).
+// Stunden ohne jede Messung erscheinen bewusst nicht als 0-Balken (echte Lücke, kein
+// gemessenes "kein Regen").
+function aggregiereProStunde(chronologischeDaten, feldName) {
+    const gruppen = new Map();
+
+    chronologischeDaten.forEach(datensatz => {
+        const wert = datensatz[feldName];
+        if (wert === null || wert === undefined) return;
+        const zeit = parseSensorZeitpunkt(datensatz.time);
+        const stundenSchluessel = new Date(zeit.getFullYear(), zeit.getMonth(), zeit.getDate(), zeit.getHours()).getTime();
+        if (!gruppen.has(stundenSchluessel)) gruppen.set(stundenSchluessel, []);
+        gruppen.get(stundenSchluessel).push(wert);
+    });
+
+    const sortierteSchluessel = [...gruppen.keys()].sort((a, b) => a - b);
+    return {
+        beschriftungen: sortierteSchluessel.map(schluessel =>
+            new Date(schluessel).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit' })
+        ),
+        datensaetze: sortierteSchluessel.map(schluessel => ({
+            time: new Date(schluessel).toISOString(),
+            [feldName]: mittelwert(gruppen.get(schluessel))
+        }))
+    };
+}
+
 function zeichneZeitreihe(canvas, feldName, beschriftungen, chronologischeDaten) {
     const info = ermittleMessfeldInfo(feldName);
+
+    if (feldName === 'Rain') {
+        const stuendlich = aggregiereProStunde(chronologischeDaten, feldName);
+        beschriftungen = stuendlich.beschriftungen;
+        chronologischeDaten = stuendlich.datensaetze;
+    }
+
     const werte = chronologischeDaten.map(datensatz => {
         const rohwert = datensatz[feldName];
         return (rohwert === null || rohwert === undefined) ? null : info.umrechnen(rohwert);

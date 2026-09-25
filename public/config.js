@@ -100,7 +100,7 @@ const STANDORTE = [
         lng: 13.04480,
         resourceId: 'af27322f-2852-4c56-86b2-bc8cf4c45fda',
         datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/3cb6ef68-d74c-4cbb-ae39-cd7c1ca996c8/resource/af27322f-2852-4c56-86b2-bc8cf4c45fda',
-        hinweis: 'resourceId liefert aktuell HTTP 404 bei der Datenplattform (geprüft 25.09.2026) - die Ressource wurde vermutlich beim letzten Sensor-Update auf der UDP umgezogen/erneuert. Bitte die aktuelle resource_id für diesen Standort auf der Datenplattform neu heraussuchen und hier eintragen.'
+        hinweis: 'Dieselbe resourceId wie "hoffbauer-kita" - bitte prüfen, ob das beabsichtigt ist (z. B. weil ein Sensor beide Standorte abdeckt) oder ob hier eigentlich eine eigene resource_id eingetragen werden sollte.'
     },
     {
         id: 'kepplerplatz',

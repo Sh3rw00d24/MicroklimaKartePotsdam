@@ -168,9 +168,11 @@ html { overflow-x: hidden; } /* Sicherheitsnetz gegen horizontales Scrollen durc
 .popup-metric:last-child { border-bottom: none; }
 .popup-metric-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; font-weight: 600; }
 .popup-metric-val { font-size: 14px; font-weight: 700; color: var(--brand-dark); font-variant-numeric: tabular-nums; }
-.popup-mini-desc { font-size: 13px; color: #64748b; line-height: 1.5; }
+.popup-mini-desc { font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 10px; }
 .popup-btn { display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; padding: 10px; border: 1px solid var(--accent-color); color: var(--accent-color); text-decoration: none; font-weight: 600; font-size: 13px; transition: 0.2s; cursor: pointer; margin-top: 15px; }
 .popup-btn:hover { background: var(--accent-light); }
+.popup-quelle-link { font-size: 12.5px; margin-top: 4px; }
+.popup-quelle-link .material-icons-round { font-size: 14px; }
 
 /* Analytics Dashboard */
 .section-title { font-family: var(--font-display); font-size: 32px; color: var(--brand-dark); margin: 20px 0 30px; border-top: 1px solid var(--border-color); padding-top: 40px; }

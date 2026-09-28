@@ -191,7 +191,7 @@ function ermittleKanonischenFeldnamen(rohName) {
 // UND der Luftdruck-Rohwert ergab umgerechnet 286 hPa - physikalisch unmöglich, der
 // niedrigste je gemessene Meeresspiegeldruck weltweit liegt bei ca. 870 hPa).
 // Werte außerhalb werden wie ein fehlender Messwert behandelt (null) - die nächste
-// gültige Messung füllt die Lücke automatisch (siehe ermittleAktuelleWerteGemergt() in script.js).
+// gültige Messung füllt die Lücke automatisch (siehe findeLetzteVollstaendigeWerte() in script.js).
 const PLAUSIBLE_BEREICH = {
     'Air Temperature': { min: -30, max: 50 },
     'Air Humidity': { min: 0, max: 100 },

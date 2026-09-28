@@ -28,7 +28,7 @@ const STANDORTE = [
         lat: 52.4057289314038,
         lng: 13.085039746744865,
         resourceId: '969183f0-736e-4aa5-9e40-368728903ba9',
-        datenquelleUrl: ' https://ckan.urbanedatenplattform-potsdam.de/dataset/70f2678a-0426-43ca-a22a-5ee474416fa9/resource/969183f0-736e-4aa5-9e40-368728903ba9'
+        datenquelleUrl: 'https://ckan.urbanedatenplattform-potsdam.de/dataset/70f2678a-0426-43ca-a22a-5ee474416fa9/resource/969183f0-736e-4aa5-9e40-368728903ba9'
     },
     {
         id: 'krampnitz',

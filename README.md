@@ -144,6 +144,8 @@ herausgezoomter Ansicht zu einer einzigen verwaschenen Durchschnittsfarbe versch
 | `public/dwd-vergleich.js` | DWD-Klimanormal-Vergleich: graue Vergleichslinie im Diagramm + textliche Einordnung. |
 | `public/script.js` | Hauptlogik: Karte, Datenabruf, Popup, Diagramme, Zusammenspiel aller anderen Module. |
 | `public/dev-test.js` | **Nur lokal, nicht in Git**: Konsolen-Werkzeug zum Simulieren von Extremwerten (Details unten). |
+| `Dockerfile` / `.dockerignore` | Produktions-Image für den Container-Betrieb (siehe "Deployment als Container"). |
+| `helm/stadtpuls-potsdam/` | Helm-Chart für das Deployment auf Kubernetes (UDP-Infrastruktur). |
 
 ## Die Bausteine im Detail
 
@@ -283,3 +285,53 @@ Ohne Standort-ID wird zufällig ein Standort mit echtem Sensor gewählt.
 Ordner an einen festen Speicherort verschieben (eigener Rechner, kleiner Server oder
 Node.js-fähiger Hoster, z. B. Render/Railway). Startbefehl bleibt überall gleich:
 `npm install` einmalig, danach `npm start`.
+
+## Deployment als Container (Docker / Kubernetes)
+
+Für den Betrieb auf der UDP-Infrastruktur liegen ein `Dockerfile` und ein Helm-Chart
+(`helm/stadtpuls-potsdam/`) bereit.
+
+**Image bauen und lokal testen:**
+
+```bash
+docker build -t stadtpuls-potsdam:latest .
+docker run -p 3000:3000 stadtpuls-potsdam:latest
+```
+
+Läuft als unprivilegierter User, meldet sich über `HEALTHCHECK` selbst als gesund/ungesund
+und enthält nie `public/dev-test.js` (wird beim Bauen explizit entfernt, siehe
+`Dockerfile`). Das DWD-Cache-Verzeichnis (`data/`) ist rein ephemer - geht ein Container
+verloren, werden die Referenzdaten beim nächsten Start einfach neu geladen.
+
+**Image in eine Registry pushen** (Name/Ziel je nach UDP-Vorgabe anpassen):
+
+```bash
+docker tag stadtpuls-potsdam:latest <registry>/stadtpuls-potsdam:<tag>
+docker push <registry>/stadtpuls-potsdam:<tag>
+```
+
+**Mit Helm deployen:**
+
+```bash
+helm install stadtpuls-potsdam helm/stadtpuls-potsdam \
+  --set image.repository=<registry>/stadtpuls-potsdam \
+  --set image.tag=<tag>
+```
+
+Alle Werte (Ingress-Host/-Klasse/TLS, Ressourcen-Limits, Replikas, Autoscaling) stehen mit
+Erklärung in `helm/stadtpuls-potsdam/values.yaml` und lassen sich einzeln per `--set`
+überschreiben oder in einer eigenen `values-udp.yaml` bündeln. Ingress ist standardmäßig
+deaktiviert (`ingress.enabled: false`), da Hostname/IngressClass/TLS-Issuer vom Ziel-Cluster
+abhängen - vor dem ersten produktiven Deploy in `values.yaml` eintragen oder per `--set`
+mitgeben. Ohne Ingress ist die Seite testweise per Port-Forward erreichbar:
+
+```bash
+kubectl port-forward svc/stadtpuls-potsdam 8080:80
+```
+
+Chart validieren, ohne etwas zu deployen:
+
+```bash
+helm lint --strict helm/stadtpuls-potsdam
+helm template stadtpuls-potsdam helm/stadtpuls-potsdam
+```

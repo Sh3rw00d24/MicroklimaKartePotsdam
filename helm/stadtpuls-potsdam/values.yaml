@@ -1,0 +1,96 @@
+replicaCount: 1
+
+image:
+  repository: stadtpuls-potsdam
+  tag: ""  # Standard: .Chart.appVersion. Bei jedem Deploy auf einen konkreten Image-Tag setzen.
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+# Das Image läuft bereits als unprivilegierter User "stadtpuls" (siehe Dockerfile) -
+# diese Felder erzwingen das zusätzlich auf Kubernetes-Ebene, auch falls sich das
+# Image mal ändert.
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false  # dwd-klimadaten.js schreibt einen Cache nach ./data
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+# An die UDP-Infrastruktur anpassen: host, ingressClassName und tls sind hier bewusst
+# leer/deaktiviert gelassen, da diese Werte vom Ziel-Cluster abhängen.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: stadtpuls-potsdam.example.org
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: stadtpuls-potsdam-tls
+    #   hosts:
+    #     - stadtpuls-potsdam.example.org
+
+# Bewusst knapp bemessen: ein schlankes Node/Express-Dashboard ohne nennenswerte Rechenlast.
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 192Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# PORT wird vom Dockerfile bereits auf 3000 gesetzt - hier nur eintragen, falls die
+# UDP-Umgebung weitere Variablen braucht (z. B. einen HTTP-Proxy).
+env: []
+  # - name: PORT
+  #   value: "3000"
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

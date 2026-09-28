@@ -1,0 +1,18 @@
+Stadtpuls Potsdam wurde deployt ({{ .Release.Name }} im Namespace {{ .Release.Namespace }}).
+
+{{- if .Values.ingress.enabled }}
+Erreichbar über:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+Kein Ingress aktiviert (ingress.enabled=false). Zugriff z. B. per Port-Forward:
+
+  kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "stadtpuls-potsdam.fullname" . }} 8080:{{ .Values.service.port }}
+
+Danach im Browser: http://localhost:8080
+{{- end }}
+
+Status prüfen:
+
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/instance={{ .Release.Name }}"

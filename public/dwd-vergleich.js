@@ -17,7 +17,7 @@ let dwdReferenzdaten = null;
 // Einmalig beim Laden der Seite abrufen (Klimanormal ändert sich praktisch nie).
 async function ladeDwdReferenzdaten() {
     try {
-        const antwort = await fetch('/api/dwd/referenz');
+        const antwort = await fetch(`${APP_BASIS_PFAD}/api/dwd/referenz`);
         const daten = await antwort.json();
 
         if (!daten.erfolgreich) {

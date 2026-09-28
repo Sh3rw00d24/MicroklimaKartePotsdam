@@ -1,3 +1,11 @@
+// Basis-Pfad der App, automatisch aus der eigenen Script-URL abgeleitet - dadurch
+// funktioniert die Seite unverändert an jedem Mount-Punkt (Domain-Root, Unterpfad wie
+// "/mikroklima/", beliebige Verschachtelung, jede Domain), ganz ohne Konfiguration. Muss
+// hier stehen, da config.js als erstes Skript geladen wird (siehe index.html) und
+// document.currentScript nur synchron beim ersten Ausführen des Skripts gültig ist -
+// spätere Dateien (dwd-vergleich.js, script.js) nutzen einfach diese Konstante.
+const APP_BASIS_PFAD = document.currentScript.src.replace(/\/config\.js(\?.*)?$/, '');
+
 // Messstandorte auf der Karte.
 // resourceId: CKAN-Ressourcen-ID des Sensors (aus dessen API-Link/Datensatz-URL).
 //   null = noch kein Sensor -> Dashboard zeigt "noch nicht angebunden".

@@ -335,3 +335,65 @@ Chart validieren, ohne etwas zu deployen:
 helm lint --strict helm/stadtpuls-potsdam
 helm template stadtpuls-potsdam helm/stadtpuls-potsdam
 ```
+
+## Deployment unter einem Unterpfad (z. B. domain.de/mikroklima)
+
+Die Seite muss nicht auf der Domain-Wurzel laufen. Der Browser-Teil erkennt seinen
+eigenen Mount-Punkt automatisch: `public/config.js` liest beim Laden die tatsächliche
+URL des eigenen `<script>`-Tags aus (`APP_BASIS_PFAD`) und hängt sie vor jeden
+API-Aufruf - dadurch funktionieren CSS/JS/API gleichermaßen, egal ob die Seite unter
+`domain.de/`, `domain.de/mikroklima/` oder sonst einem Pfad hängt. Keine Konfiguration
+nötig, solange der Reverse-Proxy zwei Dinge sicherstellt:
+
+1. **Trailing Slash erzwingen**: Ein Aufruf von `domain.de/mikroklima` (ohne
+   abschließenden Schrägstrich) muss auf `domain.de/mikroklima/` weiterleiten - sonst
+   löst der Browser relative Pfade wie `style.css` fälschlich gegen die Domain-Wurzel
+   statt gegen den Unterpfad auf (die eigentliche Ursache, wenn CSS/JS trotz
+   funktionierendem Rewrite nicht laden). `server.js` macht das bereits selbst, sobald
+   `BASE_PATH` gesetzt ist (siehe unten) - ein Reverse-Proxy davor sollte es zusätzlich
+   tun, damit der Redirect nicht erst bis zum Backend durchgereicht werden muss.
+2. **Pfad-Präfix entfernen** (empfohlen) oder **durchreichen** (dann `BASE_PATH` setzen)
+   - beides wird unterstützt:
+
+**Variante A - Proxy entfernt das Präfix** (einfacher, keine App-Konfiguration nötig):
+
+```nginx
+location = /mikroklima { return 301 /mikroklima/; }
+location /mikroklima/ {
+    proxy_pass http://stadtpuls-potsdam:3000/;   # Schrägstrich am Ende entfernt das Präfix
+    proxy_set_header Host $host;
+}
+```
+
+`server.js` sieht in diesem Fall nur noch `/`, `/style.css`, `/api/...` - genau wie im
+Standardbetrieb, keine weitere Anpassung nötig. In Kubernetes entspricht das z. B. bei
+ingress-nginx der Annotation `nginx.ingress.kubernetes.io/rewrite-target: /$2` mit
+Pfad `/mikroklima(/|$)(.*)`.
+
+**Variante B - Proxy reicht das Präfix unverändert durch:**
+
+```nginx
+location /mikroklima/ {
+    proxy_pass http://stadtpuls-potsdam:3000;    # kein Schrägstrich am Ende - Präfix bleibt erhalten
+    proxy_set_header Host $host;
+}
+```
+
+Hier muss `server.js` das Präfix kennen, sonst laufen seine eigenen Routen (`/style.css`,
+`/api/...`) ins Leere:
+
+```bash
+BASE_PATH=/mikroklima npm start
+```
+
+Im Helm-Chart entsprechend über `env` mitgeben:
+
+```bash
+helm install stadtpuls-potsdam helm/stadtpuls-potsdam \
+  --set "env[0].name=BASE_PATH" \
+  --set "env[0].value=/mikroklima" \
+  --set "ingress.hosts[0].paths[0].path=/mikroklima"
+```
+
+Ohne gesetztes `BASE_PATH` verhält sich `server.js` exakt wie bisher (Domain-Wurzel) -
+die Variable ist rein optional und ändert nichts am Standardbetrieb.

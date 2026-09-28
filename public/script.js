@@ -356,7 +356,7 @@ async function aktualisiereAlleAktuellenWerte() {
 // Ruft den Server ab und normalisiert Feldnamen/Einheiten (Sensoren nennen Felder unterschiedlich).
 async function holeMesswerte(resourceId, limit) {
     try {
-        const antwort = await fetch(`/api/messwerte/${resourceId}?limit=${limit}`);
+        const antwort = await fetch(`${APP_BASIS_PFAD}/api/messwerte/${resourceId}?limit=${limit}`);
         const daten = await antwort.json();
 
         if (daten.erfolgreich) {

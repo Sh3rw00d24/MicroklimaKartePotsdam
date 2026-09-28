@@ -14,17 +14,39 @@ const { holeDwdReferenzdaten } = require('./dwd-klimadaten');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Nur nötig, wenn die Seite hinter einem Reverse-Proxy unter einem Unterpfad läuft
+// UND dieser Proxy den Pfad unverändert durchreicht (z. B. "/mikroklima/api/..." kommt
+// genauso bei diesem Server an) - dann hier denselben Pfad eintragen, z. B.
+// BASE_PATH=/mikroklima. Entfernt der Proxy den Unterpfad selbst (empfohlen, siehe
+// README "Deployment unter einem Unterpfad"), bleibt BASE_PATH leer, Standardverhalten
+// unverändert. Das Frontend (public/config.js, APP_BASIS_PFAD) erkennt seinen Unterpfad
+// in jedem Fall automatisch am eigenen Skript-Tag - unabhängig von dieser Variable.
+const BASE_PATH = (process.env.BASE_PATH || '').replace(/\/+$/, '');
+
 const CKAN_SUCHE_URL = 'https://ckan.urbanedatenplattform-potsdam.de/api/action/datastore_search';
 
 // 10.000 Datensätze decken bei aktueller Sendefrequenz (~1-2h) mehrere Jahre ab -
 // reicht locker für "gesamter Zeitraum". Bei Bedarf einfach erhöhen.
 const MAX_MESSWERTE_PRO_ABRUF = 10000;
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Bei gesetztem BASE_PATH auch den nackten Unterpfad ohne Schrägstrich abfangen (z. B.
+// "/mikroklima" -> "/mikroklima/") - sonst lösen Browser relative Pfade wie "style.css"
+// fälschlich gegen die Domain-Wurzel statt gegen den Unterpfad auf. Bewusst über
+// req.path statt app.get(BASE_PATH, ...): Express' Standard-Routing behandelt
+// "/mikroklima" und "/mikroklima/" als dieselbe Route (nicht strikt), das würde hier
+// sonst zu einer Endlosschleife führen (Route matcht ihr eigenes Redirect-Ziel).
+if (BASE_PATH) {
+    app.use((req, res, next) => {
+        if (req.path === BASE_PATH) return res.redirect(301, `${BASE_PATH}/`);
+        next();
+    });
+}
+
+app.use(BASE_PATH, express.static(path.join(__dirname, 'public')));
 
 // Messwerte einer CKAN-Ressource abrufen, z. B. /api/messwerte/<resourceId>?limit=5000
 // <resourceId> ist die CKAN "resource_id", wie sie in public/config.js hinterlegt ist.
-app.get('/api/messwerte/:resourceId', async (req, res) => {
+app.get(`${BASE_PATH}/api/messwerte/:resourceId`, async (req, res) => {
     const resourceId = req.params.resourceId;
     const angefragteAnzahl = Number(req.query.limit) || MAX_MESSWERTE_PRO_ABRUF;
     const anzahl = Math.min(Math.max(angefragteAnzahl, 1), MAX_MESSWERTE_PRO_ABRUF);
@@ -72,7 +94,7 @@ app.get('/api/messwerte/:resourceId', async (req, res) => {
 });
 
 // DWD-Referenzdaten für Potsdam (Klimanormal + Erwärmungstrend), siehe dwd-klimadaten.js.
-app.get('/api/dwd/referenz', async (req, res) => {
+app.get(`${BASE_PATH}/api/dwd/referenz`, async (req, res) => {
     try {
         res.json(await holeDwdReferenzdaten());
     } catch (fehler) {
@@ -82,6 +104,6 @@ app.get('/api/dwd/referenz', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Stadtpuls Potsdam läuft auf http://localhost:${PORT}`);
+    console.log(`Stadtpuls Potsdam läuft auf http://localhost:${PORT}${BASE_PATH}/`);
     holeDwdReferenzdaten().catch(fehler => console.warn('DWD-Referenzdaten (Hintergrund-Vorabladen) fehlgeschlagen:', fehler.message));
 });

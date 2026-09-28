@@ -67,11 +67,13 @@ autoscaling:
   maxReplicas: 3
   targetCPUUtilizationPercentage: 80
 
-# PORT wird vom Dockerfile bereits auf 3000 gesetzt - hier nur eintragen, falls die
-# UDP-Umgebung weitere Variablen braucht (z. B. einen HTTP-Proxy).
+# PORT wird vom Dockerfile bereits auf 3000 gesetzt. BASE_PATH nur setzen, wenn die
+# Seite unter einem Unterpfad statt der Domain-Wurzel laufen soll (z. B. "/mikroklima"
+# bei domain.de/mikroklima) - dann auch ingress.hosts[0].paths[0].path entsprechend
+# setzen. Siehe README "Deployment unter einem Unterpfad".
 env: []
-  # - name: PORT
-  #   value: "3000"
+  # - name: BASE_PATH
+  #   value: "/mikroklima"
 
 livenessProbe:
   httpGet:

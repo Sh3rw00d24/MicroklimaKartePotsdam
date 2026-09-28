@@ -14,13 +14,13 @@ const { holeDwdReferenzdaten } = require('./dwd-klimadaten');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Nur nötig, wenn die Seite hinter einem Reverse-Proxy unter einem Unterpfad läuft
-// UND dieser Proxy den Pfad unverändert durchreicht (z. B. "/mikroklima/api/..." kommt
-// genauso bei diesem Server an) - dann hier denselben Pfad eintragen, z. B.
-// BASE_PATH=/mikroklima. Entfernt der Proxy den Unterpfad selbst (empfohlen, siehe
-// README "Deployment unter einem Unterpfad"), bleibt BASE_PATH leer, Standardverhalten
-// unverändert. Das Frontend (public/config.js, APP_BASIS_PFAD) erkennt seinen Unterpfad
-// in jedem Fall automatisch am eigenen Skript-Tag - unabhängig von dieser Variable.
+// Läuft die Seite nicht auf der Domain-Wurzel, sondern unter einem Unterpfad (z. B.
+// domain.de/mikroklima), hier genau diesen Pfad eintragen: BASE_PATH=/mikroklima.
+// Einzige Stellschraube für Unterpfad-Deployments - dieser eine Wert bestimmt sowohl
+// die serverseitigen Routen als auch (über /env.js, siehe unten) den Pfad, den das
+// Frontend für seine eigenen API-Aufrufe verwendet. Der Reverse-Proxy davor muss den
+// Pfad deshalb unverändert durchreichen (kein Rewrite/Strip nötig - im Gegenteil, das
+// würde diesen Wert dann falsch machen). Siehe README "Deployment unter einem Unterpfad".
 const BASE_PATH = (process.env.BASE_PATH || '').replace(/\/+$/, '');
 
 const CKAN_SUCHE_URL = 'https://ckan.urbanedatenplattform-potsdam.de/api/action/datastore_search';
@@ -41,6 +41,14 @@ if (BASE_PATH) {
         next();
     });
 }
+
+// Gibt BASE_PATH ans Frontend weiter (als erstes Skript in index.html geladen, siehe
+// dort) - dadurch kennt public/config.js (APP_BASIS_PFAD) exakt denselben Wert wie
+// dieser Server, ohne ihn separat konfigurieren zu müssen. Kein "text/javascript" über
+// express.static nötig, da diese Route dynamisch ist (der Wert kommt aus process.env).
+app.get(`${BASE_PATH}/env.js`, (req, res) => {
+    res.type('application/javascript').send(`const APP_BASIS_PFAD = ${JSON.stringify(BASE_PATH)};`);
+});
 
 app.use(BASE_PATH, express.static(path.join(__dirname, 'public')));
 

@@ -1009,7 +1009,6 @@ function erzeugeDiagrammKarten(felder, standort) {
                 <div class="more-info-content">
                     <p><strong>Interpretation:</strong> ${info.interpretation}</p>
                     <p style="margin-top: 8px;"><strong>Handlungsempfehlung:</strong> ${info.empfehlung}</p>
-                    ${erzeugeKlimawandelEinordnungHtml(standort, feldName)}
                 </div>
             </div>`;
     }).join('');
@@ -1291,17 +1290,25 @@ function bestimmeHimmelsrichtung(gradzahl) {
     return HIMMELSRICHTUNGEN[Math.round(gradzahl / 22.5) % 16];
 }
 
-// Zeitstempel -> lesbares deutsches Datum mit Uhrzeit.
+// Zeitstempel -> lesbares deutsches Datum mit Uhrzeit, z. B. "28.09.2026 10:16 Uhr".
 function formatiereZeitpunkt(zeitpunktText) {
     if (!zeitpunktText) return '–';
     const datum = parseSensorZeitpunkt(zeitpunktText);
     if (Number.isNaN(datum.getTime())) return zeitpunktText;
-    return datum.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+    const tag = String(datum.getDate()).padStart(2, '0');
+    const monat = String(datum.getMonth() + 1).padStart(2, '0');
+    const uhrzeit = datum.toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return `${tag}.${monat}.${datum.getFullYear()} ${uhrzeit} Uhr`;
 }
 
-// Zeitstempel -> kurze Achsenbeschriftung für Diagramme.
+// Zeitstempel -> Achsenbeschriftung für Diagramme (auch für die Tooltip-Überschrift
+// verwendet, da dort kein eigenes Format gesetzt ist), z. B. "28.09.2026 10:16".
 function formatiereZeitpunktFuerAchse(zeitpunktText) {
-    return parseSensorZeitpunkt(zeitpunktText).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const datum = parseSensorZeitpunkt(zeitpunktText);
+    const tag = String(datum.getDate()).padStart(2, '0');
+    const monat = String(datum.getMonth() + 1).padStart(2, '0');
+    const uhrzeit = datum.toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return `${tag}.${monat}.${datum.getFullYear()} ${uhrzeit}`;
 }
 
 // Hex-Farbe -> rgba() mit gegebener Deckkraft.

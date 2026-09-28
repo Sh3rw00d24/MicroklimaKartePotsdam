@@ -130,31 +130,6 @@ function erzeugeDwdVergleichsHtml(standort, feldName) {
         </p>`;
 }
 
-// Nur bei Temperatur: zusätzlicher Absatz im aufklappbaren Bereich mit dem
-// langfristigen Erwärmungstrend - bewusst getrennt von der Tagesabweichung oben,
-// da eine einzelne Messung und ein 130-Jahre-Trend zwei verschiedene Dinge sind.
-function erzeugeKlimawandelEinordnungHtml(standort, feldName) {
-    if (feldName !== 'Air Temperature' || !dwdReferenzdaten) return '';
-
-    const trend = dwdReferenzdaten.trend.temp;
-    const vorzeichen = (zahl) => (zahl >= 0 ? '+' : '') + zahl.toFixed(2).replace('.', ',');
-
-    return `
-        <p style="margin-top: 8px;"><strong>Einordnung zum Klimawandel:</strong>
-            Unabhängig von der aktuellen Messung zeigt die DWD-Station ${dwdReferenzdaten.station.name} –
-            eine der längsten durchgehenden Wetterreihen Deutschlands – seit ${trend.gesamtZeitraum.von}
-            einen Erwärmungstrend von ${vorzeichen(trend.gesamtSteigungProJahrzehnt)}°C pro Jahrzehnt.
-            In den letzten 30 Jahren (${trend.neuererZeitraum.von}–${trend.neuererZeitraum.bis}) hat sich
-            dieser Trend auf ${vorzeichen(trend.neuereSteigungProJahrzehnt)}°C pro Jahrzehnt beschleunigt.
-            Eine einzelne Messung liegt stets innerhalb der natürlichen Wetterschwankung und ist für sich
-            genommen kein Beleg für oder gegen Klimawandel – der Trend selbst beruht auf über 130 Jahren Messreihe.
-        </p>
-        <p style="margin-top: 8px;"><strong>Methodischer Hinweis:</strong> Dieser Sensor ist kein geeichtes
-            DWD-Messgerät. Bauart, Aufstellungsort und städtische Umgebung (z. B. Wärmeinseleffekt) können zu
-            Abweichungen von der DWD-Referenzstation führen, die nichts mit Wetter oder Klima zu tun haben.
-        </p>`;
-}
-
 // Datum -> "MM-TT", zum Nachschlagen im kalendertag-indizierten Klimanormal.
 function formatiereAlsMonatTag(datum) {
     return `${String(datum.getMonth() + 1).padStart(2, '0')}-${String(datum.getDate()).padStart(2, '0')}`;
